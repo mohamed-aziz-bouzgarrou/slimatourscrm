@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Information</title>
+    <link rel="stylesheet" href="styles.css"> <!-- Si tu as des styles externes -->
+</head>
+<style>
+    body {
+      display: flex;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f9fafb;
+    }
+    .sidebar {
+      width: 200px;
+      background-color: #ffffff;
+      border-right: 1px solid #e5e7eb;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 20px;
+    }
+    .logo {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #1f2937;
+      margin-bottom: 20px;
+    }
+    .menu {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .menu-item {
+      margin: 15px 0;
+    }
+    .link {
+      text-decoration: none;
+      color: #4b5563;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+    }
+    .icon {
+      margin-right: 10px;
+      font-size: 1rem;
+    }
+    .badge {
+      background-color: #2563eb;
+      color: white;
+      border-radius: 50%;
+      padding: 2px 8px;
+      font-size: 0.7rem;
+    }
+    .space {
+      height: 10px;
+    }
+    .divider {
+      height: 1px;
+      background-color: #e5e7eb;
+      margin: 10px 0;
+    }
+    .user-profile {
+      display: flex;
+      align-items: center;
+      margin-top: auto;
+    }
+    .profile-pic {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+    .user-name {
+      margin: 0;
+      color: #6b7280;
+      font-size: 0.9rem;
+    }
+    .user-email {
+      margin: 0;
+      color: #6b7280;
+      font-size: 0.8rem;
+    }
+    .logout {
+      color: #ef4444;
+      text-decoration: none;
+      font-size: 0.8rem;
+      margin-top: 10px;
+    }
+    .container {
+      flex: 1;
+      padding: 20px;
+    }
+    .account-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .header-title {
+      font-size: 1.3rem;
+      color: #1f2937;
+    }
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+    }
+    .tab {
+      text-decoration: none;
+      color: #4b5563;
+      margin-right: 15px;
+      font-size: 0.9rem;
+      border-bottom: 2px solid transparent;
+      padding-bottom: 5px;
+    }
+    .active-tab {
+      color: #2563eb;
+      border-bottom: 2px solid #2563eb;
+    }
+    .account-content {
+      display: flex;
+      gap: 20px;
+    }
+    .account-section {
+      background-color: #f3f4f6;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      flex: 1;
+    }
+    .section-title {
+      margin-bottom: 20px;
+      margin-top: 20px;
+      color: #1f2937;
+      font-size: 1rem;
+    }
+    .form-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      background-color: white;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.3s ease;
+    }
+    .save-button {
+      background-color: #2563eb;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .profile-section {
+      flex: 0 0 300px;
+      display: flex;
+      justify-content: center;
+    }
+    .profile-card {
+      text-align: center;
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      width: 100%;
+    }
+    .profile-pic-large {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      margin-bottom: 10px;
+    }
+    .user-name-large {
+      font-size: 1rem;
+      color: #1f2937;
+      margin-bottom: 5px;
+    }
+    .premium-badge {
+      background-color: #fbbf24;
+      color: white;
+      padding: 5px 10px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+    }
+    .upload-instructions {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin: 10px 0;
+    }
+    .upload-button {
+      background-color: #2563eb;
+      color: white;
+      padding: 8px 15px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .delete-account-section {
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .delete-warning {
+      color: #6b7280;
+      margin-bottom: 15px;
+      font-size: 0.9rem;
+    }
+    .delete-button {
+      background-color: #ef4444;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+  </style>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="logo">NemalaFX</div>
+            <ul class="menu">
+                <li class="menuItem"><a href="#" class="link"><i class="icon"></i> Dashboard</a></li>
+                <li class="menuItem"><a href="#" class="link"><i class="icon"></i> Products</a></li>
+                <li class="menuItem"><a href="#" class="link"><i class="icon"></i> Requests</a></li>
+                <li class="menuItem"><a href="#" class="link"><i class="icon"></i> Messages <span class="badge">6</span></a></li>
+                <div class="space"></div>
+                <div class="divider"></div>
+                <li class="menuItem"><a href="#" class="link"><i class="icon"></i> Settings</a></li>
+                <li class="menuItem"><a href="#" class="link"><i class="icon"></i> Notifications <span class="badge">23</span></a></li>
+            </ul>
+            <div class="userProfile">
+                <img src="https://via.placeholder.com/40" alt="User" class="profilePic">
+                <div>
+                    <p class="userName">Jhon Doe</p>
+                    <p class="userEmail">JhondoeC@gmail.com</p>
+                    <a href="#" class="logout">Logout</a>
+                </div>
+            </div>
+        </aside>
+
+        <main class="container">
+            <header class="accountHeader">
+                <h1 class="headerTitle">Account</h1>
+            </header>
+
+            <nav class="tabs">
+                <a href="#" class="tab">Overview</a>
+                <a href="#" class="tab">Security</a>
+            </nav>
+
+            <div class="accountContent">
+                <section class="accountSection">
+                    <h2 class="sectionTitle">Account Informations</h2>
+                    <div class="formGroup">
+                        <input type="text" placeholder="First Name" class="input">
+                        <input type="text" placeholder="Last Name" class="input">
+                    </div>
+                    <div class="formGroup">
+                        <input type="tel" placeholder="Phone Number" class="input">
+                        <input type="email" placeholder="Email" class="input">
+                    </div>
+                    <div class="formGroup">
+                        <select class="input">
+                            <option value="">Select Country</option>
+                            <option value="usa">USA</option>
+                            <option value="france">France</option>
+                        </select>
+                        <input type="text" placeholder="City" class="input">
+                    </div>
+                    <input type="text" placeholder="Street Address" class="input fullWidth">
+                    <button class="saveButton">Save Changes</button>
+                </section>
+                <section class="profileSection">
+                    <div class="profileCard">
+                        <img src="https://via.placeholder.com/100" alt="User" class="profilePicLarge">
+                        <p class="userNameLarge">Jhon Doe</p>
+                        <span class="premiumBadge">Premium</span>
+                        <p class="uploadInstructions">PNG or JPG no bigger than 1000px wide and tall.</p>
+                        <button class="uploadButton">Upload</button>
+                    </div>
+                </section>
+            </div>
+
+            <section class="deleteAccountSection">
+                <h2 class="sectionTitle">Delete Account</h2>
+                <p class="deleteWarning">If you delete your account, all your data will be permanently removed. This action cannot be undone.</p>
+                <button class="deleteButton">Delete Account</button>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

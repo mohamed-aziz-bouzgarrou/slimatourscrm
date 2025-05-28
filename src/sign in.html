@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page de Connexion</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"> <!-- Ajout de Tailwind CSS -->
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen">
+
+<header class="flex items-center justify-between w-full p-5 bg-white shadow">
+    <div class="flex items-center">
+        <img src="C:\Users\HP\Desktop\projet dev\Capture d'écran 2024-10-17 222507.png" alt="Logo" class="h-12 mr-3"> <!-- Remplace "logo.png" par le chemin de ton logo -->
+        <h1 class="text-xl font-bold">NemalaFX</h1>
+    </div>
+    <nav>
+        <ul class="flex space-x-8">
+            <li><a href="#" class="text-gray-700 hover:text-blue-500">Home</a></li>
+            <li><a href="#" class="text-gray-700 hover:text-blue-500">Products</a></li>
+            <li><a href="#" class="text-gray-700 hover:text-blue-500">Strategies</a></li>
+            <li><a href="#" class="text-gray-700 hover:text-blue-500">Services</a></li>
+            <li><a href="#" class="text-gray-700 hover:text-blue-500">School</a></li>
+            <li><a href="#" class="text-gray-700 hover:text-blue-500">About Us</a></li>
+        </ul>
+    </nav>
+    <div>
+        <button class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600" onclick="location.href='/login';">Log In</button>
+        <button class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400" onclick="location.href='/signup';">Sign Up</button>
+    </div>
+</header>
+
+<main class="w-full max-w-6xl p-6 bg-white rounded-lg shadow mt-10 flex">
+    <!-- Section de bienvenue -->
+    <div class="w-1/2 pr-6">
+        <h2 class="text-5xl font-bold">Welcome Back !</h2>
+        <p class="mt-4">Continue using your email and password</p>
+        <form action="/login" method="POST" class="mt-4">
+            <label for="email" class="block text-sm font-medium text-gray-700">E-mail </label>
+            <input type="text" id="email" name="email" required class="mt-1 block w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring focus:ring-blue-500">
+
+            <label for="password" class="block text-sm font-medium text-gray-700 mt-4">Mot de passe </label>
+            <input type="password" id="password" name="password" required class="mt-1 block w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring focus:ring-blue-500">
+
+            <a href="#" class="block text-sm text-blue-500 hover:underline text-right mt-2">Mot de passe lost </a> <!-- Lien Mot de passe oublié -->
+
+          
+            <p class="mt-4 text-center flex items-center justify-center space-x-2"> 
+                <input type="submit" value="Login &#8594;" class="mt-1 bg-blue-800 text-white py-1 px-4 text-sm rounded-lg hover:bg-blue-900 w-auto">
+                <span><a href="/signup" class="text-blue-500 hover:underline">Create an Account</a> </span> 
+            </p> <!-- Lien Créer un compte -->
+
+
+
+
+        </form>
+
+
+
+        <p class="text-center mt-6">Or continue with </p>
+        <div class="flex justify-center mt-4">
+            <!-- Facebook Button with Image (Local) -->
+            <a href="/auth/facebook" class="flex justify-center items-center bg-gray-100 p-2 rounded-full shadow hover:bg-gray-200 transition">
+                <img src="C:\Users\HP\Desktop\projet dev\images\téléchargement.png" alt="Facebook" class="w-8 h-8" />
+            </a>
+
+            <!-- Google Button with Image (Local) -->
+            <a href="/auth/google" class="flex justify-center items-center bg-gray-100 p-2 rounded-full shadow hover:bg-gray-200 transition ml-2">
+                <img src="C:\Users\HP\Desktop\projet dev\images\téléchargement (1).png" alt="Google" class="w-8 h-8" />
+            </a>
+        </div>
+    </div>
+
+    <!-- Image à droite -->
+    <div class="w-full lg:w-2/3 mt-6 lg:mt-0 lg:ml-10">
+        <img src="C:\Users\HP\Desktop\projet dev\images\img1.png" alt="Image Description" class="w-full h-auto rounded-lg"> <!-- Remplace "image.jpg" par le chemin de ta photo -->
+    </div>
+</main>
+
+</body>
+</html>

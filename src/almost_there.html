@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page de Connexion</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"> <!-- Ajout de Tailwind CSS -->
+</head>
+<body class="bg-white flex flex-col items-center justify-center min-h-screen">
+
+    <header class="flex items-center justify-between w-full p-5 bg-white shadow">
+        <div class="flex items-center">
+            <img src="C:\Users\HP\Desktop\projet dev\images\img1.png"" alt="Logo" class="h-12 mr-3">
+            <h1 class="text-blue-800 text-xl font-bold">NemalaFX</h1>
+        </div>
+        <nav>
+            <ul class="flex space-x-8">
+                <li><a href="#" class="text-blue-800 hover:text-blue-900">Home</a></li>
+                <li><a href="#" class="text-blue-800 hover:text-blue-900">Products</a></li>
+                <li><a href="#" class="text-blue-800 hover:text-blue-900">Strategies</a></li>
+                <li><a href="#" class="text-blue-800 hover:text-blue-900">Services</a></li>
+                <li><a href="#" class="text-blue-800 hover:text-blue-900">School</a></li>
+                <li><a href="#" class="text-blue-800 hover:text-blue-900">About Us</a></li>
+            </ul>
+        </nav>
+        <div>
+            <button class="bg-blue-800 text-white px-6 py-1 text-sm rounded-lg hover:bg-blue-900" onclick="location.href='/login';">Log In</button>
+            <button class="bg-blue-800 text-white px-6 py-1 text-sm rounded-lg hover:bg-blue-900" onclick="location.href='/signup';">Sign Up</button>
+        </div>
+    </header>
+
+    <main class="w-full max-w-6xl p-6 bg-white rounded-lg shadow mt-10 flex flex-col lg:flex-row items-center">
+        <div class="w-full lg:w-1/2 text-center lg:text-left">
+            <h2 class="text-5xl font-bold">Almost there</h2>
+
+            <form action="/login" method="POST" class="mt-4">
+                <!-- Sélectionner le pays -->
+                <label for="country" class="block text-sm font-medium text-gray-700">Country</label>
+                <select id="country" name="country" required class="mt-1 block w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring focus:ring-blue-500">
+                    <option value="" disabled selected>Select your country</option>
+                    <option value="Afghanistan">Afghanistan</option>
+                    <option value="Albania">Albania</option>
+                    <option value="Algeria">Algeria</option>
+                    <option value="Argentina">Argentina</option>
+                    <option value="Australia">Australia</option>
+                    <option value="Brazil">Brazil</option>
+                    <option value="Canada">Canada</option>
+                    <option value="China">China</option>
+                    <option value="France">France</option>
+                    <option value="Germany">Germany</option>
+                    <option value="India">India</option>
+                    <option value="Indonesia">Indonesia</option>
+                    <option value="Italy">Italy</option>
+                    <option value="Japan">Japan</option>
+                    <option value="Mexico">Mexico</option>
+                    <option value="Nigeria">Nigeria</option>
+                    <option value="Pakistan">Pakistan</option>
+                    <option value="Russia">Russia</option>
+                    <option value="SouthAfrica">South Africa</option>
+                    <option value="UnitedKingdom">United Kingdom</option>
+                    <option value="UnitedStates">United States</option>
+                </select>
+
+                <!-- Sélectionner la ville -->
+                <label for="city" class="block text-sm font-medium text-gray-700 mt-4">City</label>
+                <select id="city" name="city" required class="mt-1 block w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring focus:ring-blue-500">
+                    <option value="" disabled selected>Select your city</option>
+                </select>
+
+                <p class="mt-4 text-center flex items-center justify-center space-x-2">
+                    <input type="submit" value="Continue &#8594;" class="mt-1 bg-blue-800 text-white py-1 px-4 text-sm rounded-lg hover:bg-blue-900 w-auto">
+                    <span> <a href="/signup" class="text-blue-500 hover:underline">Back</a></span>
+                </p>
+            </form>
+
+            <p class="text-center mt-6">Or continue with </p>
+            <div class="flex justify-center mt-4">
+                <a href="/auth/facebook" class="flex justify-center items-center bg-gray-100 p-2 rounded-full shadow hover:bg-gray-200 transition">
+                    <img src="C:\Users\HP\Desktop\projet dev\images\téléchargement.png" alt="Facebook" class="w-8 h-8" />
+                </a>
+                <a href="/auth/google" class="flex justify-center items-center bg-gray-100 p-2 rounded-full shadow hover:bg-gray-200 transition ml-2">
+                    <img src="C:\Users\HP\Desktop\projet dev\images\téléchargement (1).png" alt="Google" class="w-8 h-8" />
+                </a>
+            </div>
+        </div>
+            <!-- Image à droite -->
+            <div class="w-full lg:w-2/3 mt-6 lg:ml-10">
+                <img src="C:\Users\HP\Desktop\projet dev\images\img1.png" alt="Image Description" class="w-full h-auto rounded-lg"> 
+            </div>
+
+        
+    </main>
+    <script src="script.js"></script>
+
+</body>
+</html>
