@@ -76,7 +76,7 @@ const CustomerManagement = () => {
   const handleEditCustomer = (customer) => {
     setEditingCustomer(customer);
     setCustomerForm({
-      cin: customer.cin,
+      cin: customer.cin || "",
       name: customer.name,
       phoneNumber: customer.phoneNumber,
       address: customer.address,
@@ -96,11 +96,8 @@ const CustomerManagement = () => {
 
   // Validate form
   const validateForm = () => {
-    const { cin, name, phoneNumber, address } = customerForm;
-    if (!cin.trim()) {
-      showToast("CIN is required", "error");
-      return false;
-    }
+    const { name, phoneNumber, address } = customerForm;
+
     if (!name.trim()) {
       showToast("Name is required", "error");
       return false;
@@ -128,7 +125,7 @@ const CustomerManagement = () => {
     setIsSubmitting(true);
 
     const customerData = {
-      cin: customerForm.cin.trim(),
+      cin: customerForm.cin.trim() || null,
       name: customerForm.name.trim(),
       phoneNumber: customerForm.phoneNumber.trim(),
       address: customerForm.address.trim(),
@@ -183,10 +180,10 @@ const CustomerManagement = () => {
 
   // Filter customers based on search query
   const filteredCustomers = customers.filter((customer) =>
-    customer.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    customer.cin?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    customer.phoneNumber?.includes(searchQuery) ||
-    customer.address?.toLowerCase().includes(searchQuery.toLowerCase())
+    (customer.name?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
+    (customer.cin?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
+    (customer.phoneNumber?.includes(searchQuery) || false) ||
+    (customer.address?.toLowerCase().includes(searchQuery.toLowerCase()) || false)
   );
 
   return (
@@ -276,7 +273,7 @@ const CustomerManagement = () => {
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 text-gray-600">
                           <FaIdCard className="text-blue-500 flex-shrink-0" />
-                          <span className="text-sm truncate">{customer.cin}</span>
+                          <span className="text-sm truncate">{customer.cin || "N/A"}</span>
                         </div>
                         <div className="flex items-center gap-2 text-gray-600">
                           <FaPhone className="text-green-500 flex-shrink-0" />
@@ -357,7 +354,7 @@ const CustomerManagement = () => {
               <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    CIN *
+                    CIN
                   </label>
                   <div className="relative">
                     <FaIdCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -367,7 +364,7 @@ const CustomerManagement = () => {
                       onChange={handleInputChange}
                       type="text"
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Enter CIN"
+                      placeholder="Enter CIN (optional)"
                       disabled={isSubmitting}
                     />
                   </div>
@@ -439,7 +436,7 @@ const CustomerManagement = () => {
                   <button
                     onClick={handleSubmit}
                     type="button"
-                    disabled={isSubmitting || !customerForm.cin || !customerForm.name || !customerForm.phoneNumber || !customerForm.address}
+                    disabled={isSubmitting || !customerForm.name || !customerForm.phoneNumber || !customerForm.address}
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (
@@ -486,7 +483,7 @@ const CustomerManagement = () => {
                     <FaIdCard className="text-blue-500" />
                     <div>
                       <p className="text-sm text-gray-500">CIN</p>
-                      <p className="font-medium text-gray-900">{viewingCustomer.cin}</p>
+                      <p className="font-medium text-gray-900">{viewingCustomer.cin || "N/A"}</p>
                     </div>
                   </div>
 

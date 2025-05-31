@@ -254,7 +254,9 @@ const BlogDetailPage = () => {
                         <th className="py-3 px-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider">
                           Agence
                         </th>
-                
+                        <th className="py-3 px-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -265,7 +267,15 @@ const BlogDetailPage = () => {
                           <td className="py-3 px-4 text-gray-800">{employee.email}</td>
                           <td className="py-3 px-4 text-gray-800">{employee.city}</td>
                           <td className="py-3 px-4">
-              
+                            <button
+                              onClick={() => handleDeleteEmployee(employee._id)}
+                              disabled={isLoading}
+                              className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Supprimer"
+                            >
+                              <FaTrash className="text-sm" />
+                              <span>Supprimer</span>
+                            </button>
                           </td>
                         </tr>
                       ))}

@@ -13,35 +13,18 @@ export default function SupDashboard() {
   const [cities, setCities] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState('');
+  const [dateFilterType, setDateFilterType] = useState('all'); // 'all', 'day', 'week', 'month', 'year'
+  const [filterDate, setFilterDate] = useState(moment().format('YYYY-MM-DD'));
   const [filterType, setFilterType] = useState('all'); // 'all', 'user', 'city'
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Générer les options de mois pour les 12 derniers mois
-  const generateMonthOptions = () => {
-    const months = [];
-    for (let i = 0; i < 12; i++) {
-      const date = moment().subtract(i, 'months');
-      months.push({
-        value: date.format('YYYY-MM'),
-        label: date.format('MMMM YYYY')
-      });
-    }
-    return months;
-  };
-
-  const monthOptions = generateMonthOptions();
-
-  // Récupérer la liste des utilisateurs pour le dropdown
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/users/`);
         const usersData = response.data.data?.data || response.data.data || [];
         setUsers(usersData);
-        
-        // Extraire les villes uniques
         const uniqueCities = [...new Set(usersData.map(user => user.city).filter(Boolean))];
         setCities(uniqueCities);
       } catch (error) {
@@ -52,17 +35,9 @@ export default function SupDashboard() {
     fetchUsers();
   }, []);
 
-  // Récupérer les statistiques initiales du tableau de bord
   useEffect(() => {
     fetchDashboardStats();
-  }, []);
-
-  // Récupérer les statistiques en fonction des filtres sélectionnés
-  useEffect(() => {
-    if (filterType !== 'all') {
-      fetchDashboardStats();
-    }
-  }, [selectedUserId, selectedCity, filterType]);
+  }, [selectedUserId, selectedCity, filterType, dateFilterType, filterDate]);
 
   const fetchDashboardStats = async () => {
     try {
@@ -71,7 +46,6 @@ export default function SupDashboard() {
       
       let url = `${process.env.REACT_APP_API_BASE_URL}/home`;
       
-      // Déterminer l'URL en fonction du type de filtre
       if (filterType === 'user' && selectedUserId) {
         url += `/user/${selectedUserId}`;
       } else if (filterType === 'city' && selectedCity) {
@@ -80,28 +54,49 @@ export default function SupDashboard() {
         url += '/all';
       }
 
-      console.log('Récupération des statistiques depuis:', url);
-      
-      const response = await axios.get(url);
+      const response = await axios.get(url, {
+        params: {
+          filterType: dateFilterType !== 'all' ? dateFilterType : undefined,
+          date: dateFilterType !== 'all' ? filterDate : undefined
+        }
+      });
       
       if (response.data.success) {
         let statsData = response.data.data;
         
-        // Si c'est des statistiques globales, utiliser les données overall
-        if (statsData.overall) {
-          statsData = {
-            ...statsData.overall,
-            byCity: statsData.byCity,
-            calculatedAt: statsData.calculatedAt
-          };
+        // Calculate Total Revenue Collected and Net Profit
+        const totalRevenueCollected = (statsData.overall?.omraBookings?.totalAmount || statsData.omraBookings?.totalAmount || 0) - 
+                                     (statsData.overall?.omraBookings?.totalCredit || statsData.omraBookings?.totalCredit || 0);
+        const totalDependences = statsData.overall?.dependences?.totalAmount || statsData.dependences?.totalAmount || 0;
+        const netProfit = totalRevenueCollected - totalDependences;
+
+        // If overall stats, process city data
+        let byCity = statsData.byCity;
+        if (byCity) {
+          byCity = Object.fromEntries(
+            Object.entries(statsData.byCity).map(([city, data]) => {
+              const cityRevenueCollected = (data.omraBookings?.totalAmount || 0) - (data.omraBookings?.totalCredit || 0);
+              const cityNetProfit = cityRevenueCollected - (data.dependences?.totalAmount || 0);
+              return [city, {
+                ...data,
+                totalRevenueCollected: cityRevenueCollected,
+                netProfit: cityNetProfit
+              }];
+            })
+          );
         }
-        
-        // Filtrer par mois si sélectionné
-        if (selectedMonth) {
-          statsData = filterStatsByMonth(statsData, selectedMonth);
-        }
-        
-        setDashboardStats(statsData);
+
+        // Structure the stats data
+        const processedStats = {
+          ...(statsData.overall || statsData),
+          totalRevenueCollected,
+          totalRevenueExpected: statsData.overall?.omraBookings?.totalAmount || statsData.omraBookings?.totalAmount || 0,
+          netProfit,
+          byCity,
+          calculatedAt: statsData.calculatedAt
+        };
+
+        setDashboardStats(processedStats);
       } else {
         setError("Échec de la récupération des statistiques du tableau de bord");
       }
@@ -113,21 +108,21 @@ export default function SupDashboard() {
     }
   };
 
-  const filterStatsByMonth = (stats, month) => {
-    // Note: Cette fonction est un placeholder car l'API actuelle ne supporte pas le filtrage par mois
-    // Vous devrez modifier l'API backend pour supporter le filtrage par mois
-    console.log(`Filtrage par mois: ${month} (non implémenté dans l'API)`);
-    return stats;
-  };
-
   const handleFilterChange = (type) => {
     setFilterType(type);
     setSelectedUserId('');
     setSelectedCity('');
-    
     if (type === 'all') {
       fetchDashboardStats();
     }
+  };
+
+  const handleDateFilterChange = (e) => {
+    setDateFilterType(e.target.value);
+  };
+
+  const handleDateChange = (e) => {
+    setFilterDate(e.target.value);
   };
 
   const formatCurrency = (amount) => {
@@ -146,7 +141,6 @@ export default function SupDashboard() {
     };
   };
 
-  // Options communes pour les graphiques
   const commonChartOptions = {
     responsive: true,
     maintainAspectRatio: true,
@@ -157,9 +151,7 @@ export default function SupDashboard() {
         labels: {
           padding: 20,
           usePointStyle: true,
-          font: {
-            size: 12
-          }
+          font: { size: 12 }
         }
       },
       tooltip: {
@@ -190,9 +182,7 @@ export default function SupDashboard() {
     scales: {
       y: {
         beginAtZero: true,
-        grid: {
-          color: 'rgba(0, 0, 0, 0.1)'
-        },
+        grid: { color: 'rgba(0, 0, 0, 0.1)' },
         ticks: {
           callback: function(value) {
             return new Intl.NumberFormat('fr-TN', {
@@ -204,37 +194,23 @@ export default function SupDashboard() {
           }
         }
       },
-      x: {
-        grid: {
-          display: false
-        }
-      }
+      x: { grid: { display: false } }
     }
   };
 
-  // Préparer les données des graphiques
   const createChartData = () => {
     if (!dashboardStats) return {};
 
-    // Graphique par ville (si on a des données par ville)
     const cityData = dashboardStats.byCity ? Object.entries(dashboardStats.byCity) : [];
     const cityChartData = {
       labels: cityData.map(([city]) => city),
       datasets: [
         {
-          label: "Revenus par Ville",
-          data: cityData.map(([, data]) => data.omraBookings?.totalAmount || 0),
+          label: "Revenus Collectés par agence",
+          data: cityData.map(([, data]) => data.totalRevenueCollected || 0),
           backgroundColor: [
-            "#FF6384", 
-            "#36A2EB", 
-            "#FFCE56", 
-            "#4BC0C0", 
-            "#9966FF", 
-            "#FF9F40",
-            "#FF6B6B",
-            "#4ECDC4",
-            "#45B7D1",
-            "#96CEB4"
+            "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", 
+            "#FF9F40", "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"
           ],
           borderWidth: 2,
           borderColor: '#fff'
@@ -242,20 +218,19 @@ export default function SupDashboard() {
       ]
     };
 
-    // Graphique Profit vs Dépenses
     const profitVsExpensesData = {
-      labels: ["Revenus", "Dépenses", "Profit Net"],
+      labels: ["Revenus Collectés", "Revenus Prévu", "Dépenses", "Profit Net"],
       datasets: [
         {
           label: "Analyse Financière (TND)",
           data: [
-            dashboardStats.omraBookings?.totalAmount || 0,
+            dashboardStats.totalRevenueCollected || 0,
+            dashboardStats.totalRevenueExpected || 0,
             dashboardStats.dependences?.totalAmount || 0,
             dashboardStats.netProfit || 0
           ],
           backgroundColor: [
-            "#36A2EB", 
-            "#FF6384", 
+            "#36A2EB", "#4BC0C0", "#FF6384", 
             dashboardStats.netProfit >= 0 ? "#4BC0C0" : "#FF6384"
           ],
           borderWidth: 1,
@@ -264,7 +239,6 @@ export default function SupDashboard() {
       ]
     };
 
-    // Graphique Traites
     const traiteData = {
       labels: ["Traites Payées (Est.)", "Traites Impayées (Est.)"],
       datasets: [
@@ -310,7 +284,7 @@ export default function SupDashboard() {
         <AdminSidbar />
       </aside>
       <main className="flex-1 p-6 overflow-auto">
-        <header className="flex justify-between items-center mb-6">
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
             <h1 className="text-2xl text-gray-800">Tableau de Bord Superviseur</h1>
             <p className="text-sm text-gray-600">
@@ -319,11 +293,8 @@ export default function SupDashboard() {
           </div>
         </header>
 
-        {/* Section des Filtres */}
         <section className="bg-white p-6 rounded-lg shadow-md mb-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Filtres</h2>
-          
-          {/* Type de Filtre */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Type de Vue</label>
@@ -334,11 +305,10 @@ export default function SupDashboard() {
               >
                 <option value="all">Toutes les Statistiques</option>
                 <option value="user">Par Utilisateur</option>
-                <option value="city">Par Ville</option>
+                <option value="city">Par agence</option>
               </select>
             </div>
 
-            {/* Filtre par Utilisateur */}
             {filterType === 'user' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Sélectionner un Utilisateur</label>
@@ -357,16 +327,15 @@ export default function SupDashboard() {
               </div>
             )}
 
-            {/* Filtre par Ville */}
             {filterType === 'city' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Sélectionner une Ville</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Sélectionner une agence</label>
                 <select
                   value={selectedCity}
                   onChange={(e) => setSelectedCity(e.target.value)}
                   className="block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="">Choisir une ville</option>
+                  <option value="">Choisir une agence</option>
                   {cities.map(city => (
                     <option key={city} value={city}>{city}</option>
                   ))}
@@ -374,23 +343,34 @@ export default function SupDashboard() {
               </div>
             )}
 
-            {/* Filtre par Mois */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Filtrer par Mois</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filtrer par Période</label>
               <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
+                value={dateFilterType}
+                onChange={handleDateFilterChange}
                 className="block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="">Tous les mois</option>
-                {monthOptions.map(month => (
-                  <option key={month.value} value={month.value}>{month.label}</option>
-                ))}
+                <option value="all">Tous</option>
+                <option value="day">Jour</option>
+                <option value="week">Semaine</option>
+                <option value="month">Mois</option>
+                <option value="year">Année</option>
               </select>
             </div>
+
+            {dateFilterType !== 'all' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={handleDateChange}
+                  className="block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            )}
           </div>
 
-          {/* Bouton de Rafraîchissement */}
           <div className="flex justify-end">
             <button
               onClick={fetchDashboardStats}
@@ -401,7 +381,6 @@ export default function SupDashboard() {
           </div>
         </section>
 
-        {/* Message d'Erreur */}
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
             <strong className="font-bold">Erreur!</strong>
@@ -409,7 +388,6 @@ export default function SupDashboard() {
           </div>
         )}
 
-        {/* Statistiques du Tableau de Bord */}
         {dashboardStats && (
           <>
             <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
@@ -427,10 +405,16 @@ export default function SupDashboard() {
                   icon: "📋"
                 },
                 {
-                  label: "Revenu Total",
-                  value: formatCurrency(dashboardStats.omraBookings?.totalAmount || 0),
+                  label: "Revenu Total Prévu",
+                  value: formatCurrency(dashboardStats.totalRevenueExpected || 0),
                   color: "bg-emerald-500",
                   icon: "💰"
+                },
+                {
+                  label: "Revenu Total Collecté",
+                  value: formatCurrency(dashboardStats.totalRevenueCollected || 0),
+                  color: "bg-teal-500",
+                  icon: "✅"
                 },
                 {
                   label: "Total Crédit",
@@ -460,7 +444,8 @@ export default function SupDashboard() {
                   label: "Profit Net",
                   value: formatCurrency(dashboardStats.netProfit || 0),
                   color: dashboardStats.netProfit >= 0 ? "bg-green-700" : "bg-red-700",
-                  icon: dashboardStats.netProfit >= 0 ? "📈" : "📉"
+                  icon: dashboardStats.netProfit >= 0 ? "📈" : "📉",
+                  tooltip: "Calculé comme: Revenu Total Collecté - Total Dépenses"
                 }
               ].map((stat, index) => (
                 <div key={index} className="p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
@@ -469,24 +454,24 @@ export default function SupDashboard() {
                     <span className="text-lg">{stat.icon}</span>
                   </div>
                   <p className="text-xl font-bold text-gray-800">{stat.value}</p>
+                  {stat.tooltip && (
+                    <p className="text-xs text-gray-500 mt-1">{stat.tooltip}</p>
+                  )}
                   <div className={`h-1 ${stat.color} rounded-full mt-2 opacity-20`}></div>
                 </div>
               ))}
             </section>
 
-            {/* Section des Graphiques */}
             <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
-              {/* Graphique par Ville */}
               {dashboardStats.byCity && Object.keys(dashboardStats.byCity).length > 0 && (
                 <div className="p-6 bg-white rounded-lg shadow-md">
-                  <h3 className="text-lg font-medium mb-4 text-center">Revenus par Ville</h3>
+                  <h3 className="text-lg font-medium mb-4 text-center">Revenus Collectés par agence</h3>
                   <div className="h-80 flex items-center justify-center">
                     <Doughnut data={safeData(cityChartData)} options={doughnutOptions} />
                   </div>
                 </div>
               )}
 
-              {/* Graphique Analyse Financière */}
               <div className="p-6 bg-white rounded-lg shadow-md">
                 <h3 className="text-lg font-medium mb-4 text-center">Analyse Financière</h3>
                 <div className="h-80">
@@ -494,7 +479,6 @@ export default function SupDashboard() {
                 </div>
               </div>
 
-              {/* Graphique Statut des Traites */}
               <div className="p-6 bg-white rounded-lg shadow-md">
                 <h3 className="text-lg font-medium mb-4 text-center">Statut des Traites</h3>
                 <div className="h-80 flex items-center justify-center">
@@ -503,18 +487,18 @@ export default function SupDashboard() {
               </div>
             </section>
 
-            {/* Tableau des Villes (si vue globale) */}
             {dashboardStats.byCity && filterType === 'all' && (
               <section className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Statistiques par Ville</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Statistiques par agence</h2>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ville</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">agence</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Utilisateurs</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Réservations</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenus</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenus Collectés</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenus Prévu</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Traites</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit Net</th>
                       </tr>
@@ -525,6 +509,7 @@ export default function SupDashboard() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{city}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{data.userCount || 0}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{data.omraBookings?.count || 0}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(data.totalRevenueCollected || 0)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(data.omraBookings?.totalAmount || 0)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{data.kembyela?.count || 0}</td>
                           <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${data.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -534,6 +519,37 @@ export default function SupDashboard() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </section>
+            )}
+
+            {dashboardStats && (
+              <section className="bg-white p-6 rounded-lg shadow-md mt-6">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Résumé Financier</h2>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Revenus Collectés:</span>
+                    <span className="font-semibold">{formatCurrency(dashboardStats.totalRevenueCollected || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Revenus Prévu:</span>
+                    <span className="font-semibold">{formatCurrency(dashboardStats.totalRevenueExpected || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Dépenses Totales:</span>
+                    <span className="font-semibold text-red-600">{formatCurrency(dashboardStats.dependences?.totalAmount || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Crédit:</span>
+                    <span className="font-semibold text-purple-600">{formatCurrency(dashboardStats.omraBookings?.totalCredit || 0)}</span>
+                  </div>
+                  <hr />
+                  <div className="flex justify-between text-lg">
+                    <span className="text-gray-800 font-semibold">Profit Net (Collecté - Dépenses):</span>
+                    <span className={`font-bold ${dashboardStats.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatCurrency(dashboardStats.netProfit || 0)}
+                    </span>
+                  </div>
                 </div>
               </section>
             )}

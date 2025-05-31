@@ -7,6 +7,8 @@ export default function Dashboard() {
   const [dashboardStats, setDashboardStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filterType, setFilterType] = useState("all");
+  const [filterDate, setFilterDate] = useState(moment().format("YYYY-MM-DD"));
   const userId = localStorage.getItem("user");
 
   useEffect(() => {
@@ -17,52 +19,43 @@ export default function Dashboard() {
       return;
     }
 
-    // Récupérer les statistiques du tableau de bord depuis la nouvelle API
     const fetchDashboardStats = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/home/user/${userId}`);
+        const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/home/user/${userId}`, {
+          params: {
+            filterType: filterType !== "all" ? filterType : undefined,
+            date: filterType !== "all" ? filterDate : undefined
+          }
+        });
         
         console.log("Réponse des statistiques du tableau de bord:", response.data);
         
         if (response.data.success) {
           const apiData = response.data.data;
           
-          // Mapper la nouvelle réponse API à la structure attendue du tableau de bord
+          const totalRevenueCollected = (apiData.omraBookings?.totalAmount || 0) - (apiData.omraBookings?.totalCredit || 0);
+          const totalDependences = apiData.dependences?.totalAmount || 0;
+          const netProfit = totalRevenueCollected - totalDependences;
+          
           const mappedStats = {
-            // Informations utilisateur
             userName: apiData.userName,
             userCity: apiData.userCity,
-            
-            // Nous n'avons pas le nombre de clients dans la nouvelle API, donc nous utilisons le nombre de réservations comme approximation
             totalCustomers: apiData.omraBookings?.count || 0,
-            
-            // Mappage des revenus
             totalRevenueExpected: apiData.omraBookings?.totalAmount || 0,
-            totalRevenueCollected: (apiData.omraBookings?.totalAmount || 0) - (apiData.omraBookings?.totalCredit || 0),
+            totalRevenueCollected: totalRevenueCollected,
             totalOutstandingBalance: apiData.omraBookings?.totalCredit || 0,
-            
-            // Profit net
-            netProfit: apiData.netProfit || 0,
-            
-            // Mappage des statistiques de traite
+            netProfit: netProfit,
             traiteStats: {
               totalTraitePayments: apiData.kembyela?.totalAmount || 0,
               totalTraiteCount: apiData.kembyela?.count || 0,
-              // Nous n'avons pas la répartition payé/impayé dans la nouvelle API, donc nous estimons
-              totalPaidTraite: Math.floor((apiData.kembyela?.count || 0) * 0.7), // En supposant que 70% sont payés
-              totalUnpaidTraite: Math.ceil((apiData.kembyela?.count || 0) * 0.3), // En supposant que 30% sont impayés
+              totalPaidTraite: Math.floor((apiData.kembyela?.count || 0) * 0.7),
+              totalUnpaidTraite: Math.ceil((apiData.kembyela?.count || 0) * 0.3),
             },
-            
-            // Dépenses
-            totalDependences: apiData.dependences?.totalAmount || 0,
-            
-            // Total crédit (from omraBookings)
+            totalDependences: totalDependences,
             totalCredit: apiData.omraBookings?.totalCredit || 0,
-            
-            // Données API brutes pour le débogage
             rawApiData: apiData
           };
           
@@ -79,7 +72,7 @@ export default function Dashboard() {
     };
 
     fetchDashboardStats();
-  }, [userId]);
+  }, [userId, filterType, filterDate]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('fr-TN', {
@@ -88,6 +81,14 @@ export default function Dashboard() {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount || 0);
+  };
+
+  const handleFilterChange = (e) => {
+    setFilterType(e.target.value);
+  };
+
+  const handleDateChange = (e) => {
+    setFilterDate(e.target.value);
   };
 
   if (loading) {
@@ -140,7 +141,7 @@ export default function Dashboard() {
         <SidBar />
       </aside>
       <main className="flex-1 p-6 overflow-auto">
-        <header className="flex justify-between items-center mb-6">
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
             <h1 className="text-2xl text-gray-800">Tableau de Bord</h1>
             {dashboardStats?.userName && (
@@ -149,8 +150,35 @@ export default function Dashboard() {
               </p>
             )}
           </div>
-          <div className="text-sm text-gray-500">
-            Dernière mise à jour: {moment().format('DD/MM/YYYY HH:mm')}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600">Filtrer par:</label>
+              <select
+                value={filterType}
+                onChange={handleFilterChange}
+                className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">Tous</option>
+                <option value="day">Jour</option>
+                <option value="week">Semaine</option>
+                <option value="month">Mois</option>
+                <option value="year">Année</option>
+              </select>
+            </div>
+            {filterType !== "all" && (
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-600">Date:</label>
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={handleDateChange}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            )}
+            <div className="text-sm text-gray-500">
+              Dernière mise à jour: {moment().format('DD/MM/YYYY HH:mm')}
+            </div>
           </div>
         </header>
 
@@ -220,7 +248,8 @@ export default function Dashboard() {
               label: "Profit Net", 
               value: formatCurrency(dashboardStats?.netProfit || 0),
               color: dashboardStats?.netProfit >= 0 ? "bg-green-700" : "bg-red-700",
-              icon: dashboardStats?.netProfit >= 0 ? "📈" : "📉"
+              icon: dashboardStats?.netProfit >= 0 ? "📈" : "📉",
+              tooltip: "Calculé comme: Revenu Total Collecté - Total Dépenses"
             }
           ].map((stat, index) => (
             <div key={index} className="p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
@@ -229,19 +258,21 @@ export default function Dashboard() {
                 <span className="text-lg">{stat.icon}</span>
               </div>
               <p className="text-xl font-bold text-gray-800">{stat.value}</p>
+              {stat.tooltip && (
+                <p className="text-xs text-gray-500 mt-1">{stat.tooltip}</p>
+              )}
               <div className={`h-1 ${stat.color} rounded-full mt-2 opacity-20`}></div>
             </div>
           ))}
         </section>
 
-        {/* Section d'informations supplémentaires */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Résumé Financier</h2>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600">Revenus Totaux:</span>
-                <span className="font-semibold">{formatCurrency(dashboardStats?.totalRevenueExpected || 0)}</span>
+                <span className="text-gray-600">Revenus Collectés:</span>
+                <span className="font-semibold">{formatCurrency(dashboardStats?.totalRevenueCollected || 0)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Dépenses Totales:</span>
@@ -253,7 +284,7 @@ export default function Dashboard() {
               </div>
               <hr />
               <div className="flex justify-between text-lg">
-                <span className="text-gray-800 font-semibold">Profit Net:</span>
+                <span className="text-gray-800 font-semibold">Profit Net (Collecté - Dépenses):</span>
                 <span className={`font-bold ${dashboardStats?.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {formatCurrency(dashboardStats?.netProfit || 0)}
                 </span>
@@ -283,16 +314,6 @@ export default function Dashboard() {
             </div>
           </div>
         </section>
-
-        {/* Informations de débogage (à supprimer en production) */}
-        {/* {process.env.NODE_ENV === 'development' && dashboardStats?.rawApiData && (
-          <section className="mt-6 bg-gray-100 p-4 rounded-lg">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Informations de Débogage (Développement Uniquement)</h3>
-            <pre className="text-xs text-gray-600 overflow-auto max-h-40">
-              {JSON.stringify(dashboardStats.rawApiData, null, 2)}
-            </pre>
-          </section>
-        )} */}
       </main>
     </div>
   );

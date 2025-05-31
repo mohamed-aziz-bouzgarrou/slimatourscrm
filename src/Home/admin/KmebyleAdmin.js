@@ -21,8 +21,8 @@ import {
   FaPrint,
   FaStickyNote,
   FaUser,
-  FaFilter,
-  FaBuilding
+  FaBuilding,
+  FaCalendar
 } from "react-icons/fa";
 
 const KmebyleAdmin = () => {
@@ -60,6 +60,9 @@ const KmebyleAdmin = () => {
   const [recordsPerPage] = useState(9);
   const [selectedUser, setSelectedUser] = useState("all");
   const [selectedType, setSelectedType] = useState("all");
+  // Date filter state
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   // Fetch all traites
   const fetchTraites = async () => {
@@ -67,9 +70,6 @@ const KmebyleAdmin = () => {
     setError(null);
     try {
       const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/kembyel`);
-      console.log("Traites fetched:", response.data);
-      
-      // Handle different possible response structures
       let traitesData = [];
       if (Array.isArray(response.data)) {
         traitesData = response.data;
@@ -78,10 +78,8 @@ const KmebyleAdmin = () => {
       } else if (response.data.data && Array.isArray(response.data.data)) {
         traitesData = response.data.data;
       } else {
-        console.log("Unexpected response structure:", response.data);
         traitesData = [];
       }
-      
       setTraites(traitesData);
     } catch (error) {
       console.error("Error fetching traites:", error);
@@ -95,7 +93,6 @@ const KmebyleAdmin = () => {
   const fetchCustomers = async () => {
     try {
       const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/customer`);
-      console.log("Customers fetched:", response.data);
       setCustomers(response.data.customers || response.data || []);
     } catch (error) {
       console.error("Error fetching customers:", error);
@@ -106,7 +103,6 @@ const KmebyleAdmin = () => {
   const fetchUsers = async () => {
     try {
       const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/users`);
-      console.log("Users fetched:", response.data);
       const usersData = response.data.data?.data || response.data.data || response.data || [];
       setUsers(usersData);
     } catch (error) {
@@ -176,7 +172,7 @@ const KmebyleAdmin = () => {
   };
 
   const validateForm = () => {
-    if (!traiteForm.customer) {
+    if (!traiteForm.customer && !editingTraite) {
       alert("Veuillez sélectionner un client");
       return false;
     }
@@ -196,8 +192,7 @@ const KmebyleAdmin = () => {
 
     setIsSubmitting(true);
 
-    const payload = {
-      customer: traiteForm.customer,
+    const basePayload = {
       note: traiteForm.note,
       type: traiteForm.type,
       user: traiteForm.user,
@@ -207,6 +202,13 @@ const KmebyleAdmin = () => {
         status: payment.status,
       })),
     };
+
+    const payload = editingTraite
+      ? basePayload
+      : {
+          ...basePayload,
+          customer: traiteForm.customer,
+        };
 
     try {
       if (editingTraite) {
@@ -266,13 +268,26 @@ const KmebyleAdmin = () => {
   };
 
   const togglePaymentStatus = async (traiteId, paymentIndex) => {
+    const traite = traites.find((t) => t._id === traiteId);
+    if (!traite || !traite.payments[paymentIndex]) {
+      alert("Traite ou paiement introuvable.");
+      return;
+    }
+    if (traite.payments[paymentIndex].status === "paid") {
+      alert("Ce paiement est déjà marqué comme payé.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    console.log(`Attempting to PATCH: ${process.env.REACT_APP_API_BASE_URL}/kembyel/${traiteId}/payments/${paymentIndex}`);
+    console.log("Payload:", { status: "paid" });
+
     try {
       await axios.patch(
-        `${process.env.REACT_APP_API_BASE_URL}/kembyel/${traiteId}/payment/${paymentIndex}`,
+        `${process.env.REACT_APP_API_BASE_URL}/kembyel/${traiteId}/payments/${paymentIndex}`,
         { status: "paid" }
       );
 
-      // Update local state
       setTraites((prevTraites) =>
         prevTraites.map((traite) =>
           traite._id === traiteId
@@ -286,7 +301,6 @@ const KmebyleAdmin = () => {
         )
       );
 
-      // Update selected traite if details modal is open
       if (selectedTraite && selectedTraite._id === traiteId) {
         setSelectedTraite((prev) => ({
           ...prev,
@@ -299,37 +313,65 @@ const KmebyleAdmin = () => {
       alert("Statut de paiement mis à jour avec succès!");
     } catch (error) {
       console.error("Error toggling payment status:", error);
-      alert("Échec de la mise à jour du statut de paiement");
+      const errorMessage =
+        error.response?.data?.message ||
+        `Échec de la mise à jour du statut de paiement: ${error.message}`;
+      alert(errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  // Clear date filter
+  const clearDateFilter = () => {
+    setStartDate("");
+    setEndDate("");
   };
 
   // Filter traites
   const filteredTraites = traites.filter((traite) => {
-    // Filter by user
+    // User filter
     if (selectedUser !== "all" && traite.user !== selectedUser && traite.user?._id !== selectedUser) {
       return false;
     }
-    
-    // Filter by type
+
+    // Type filter
     if (selectedType !== "all" && traite.type !== selectedType) {
       return false;
     }
-    
-    // Filter by search query
+
+    // Search filter
     if (searchQuery) {
       const customerName = traite.customer?.name?.toLowerCase() || "";
       const customerCin = traite.customer?.cin?.toLowerCase() || "";
       const customerPhone = traite.customer?.phoneNumber || "";
       const note = traite.note?.toLowerCase() || "";
-      
-      return (
-        customerName.includes(searchQuery.toLowerCase()) ||
-        customerCin.includes(searchQuery.toLowerCase()) ||
-        customerPhone.includes(searchQuery) ||
-        note.includes(searchQuery.toLowerCase())
-      );
+
+      if (
+        !customerName.includes(searchQuery.toLowerCase()) &&
+        !customerCin.includes(searchQuery.toLowerCase()) &&
+        !customerPhone.includes(searchQuery) &&
+        !note.includes(searchQuery.toLowerCase())
+      ) {
+        return false;
+      }
     }
-    
+
+    // Date range filter
+    if (startDate && endDate) {
+      const paymentDate = traite.payments?.[0]?.paymentDate;
+      if (!paymentDate) return false;
+      const date = new Date(paymentDate);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      // Set time boundaries for accurate comparison
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      if (isNaN(date.getTime()) || date < start || date > end) {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -351,8 +393,8 @@ const KmebyleAdmin = () => {
         bValue = b.payments?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
         break;
       case "user":
-        const userA = users.find(u => u._id === a.user || u._id === a.user?._id);
-        const userB = users.find(u => u._id === b.user || u._id === b.user?._id);
+        const userA = users.find((u) => u._id === a.user || u._id === a.user?._id);
+        const userB = users.find((u) => u._id === b.user || u._id === b.user?._id);
         aValue = userA ? `${userA.firstName} ${userA.lastName}`.toLowerCase() : "";
         bValue = userB ? `${userB.firstName} ${userB.lastName}`.toLowerCase() : "";
         break;
@@ -402,69 +444,63 @@ const KmebyleAdmin = () => {
   };
 
   const getUserName = (userId) => {
-    const user = users.find(u => u._id === userId);
+    const user = users.find((u) => u._id === userId);
     return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : "Utilisateur inconnu";
   };
 
-  // Calculate statistics
   const calculateStats = () => {
     const totalAmount = filteredTraites.reduce((sum, traite) => sum + getTotalAmount(traite.payments), 0);
     const totalPaid = filteredTraites.reduce((sum, traite) => sum + getPaidAmount(traite.payments), 0);
     const totalUnpaid = totalAmount - totalPaid;
     const totalTraites = filteredTraites.length;
     const totalPayments = filteredTraites.reduce((sum, traite) => sum + (traite.payments?.length || 0), 0);
-    
-    // Group by user
+
     const userStats = {};
-    filteredTraites.forEach(traite => {
+    filteredTraites.forEach((traite) => {
       const userId = traite.user?._id || traite.user;
       if (!userId) return;
-      
+
       if (!userStats[userId]) {
         userStats[userId] = {
           count: 0,
           amount: 0,
           paid: 0,
-          unpaid: 0
+          unpaid: 0,
         };
       }
-      
+
       userStats[userId].count++;
       userStats[userId].amount += getTotalAmount(traite.payments);
       userStats[userId].paid += getPaidAmount(traite.payments);
       userStats[userId].unpaid += getTotalAmount(traite.payments) - getPaidAmount(traite.payments);
     });
-    
+
     return {
       totalAmount,
       totalPaid,
       totalUnpaid,
       totalTraites,
       totalPayments,
-      userStats
+      userStats,
     };
   };
-  
+
   const stats = calculateStats();
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
       <div className="hidden lg:block fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200">
         <AdminSidbar />
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 lg:ml-64">
-        <div className="p-4 sm:p-6">
-          {/* Header */}
+        <div className="p-4 sm:p-6 max-w-full overflow-x-auto">
           <div className="mb-6">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Administration des Traites</h1>
             <p className="text-gray-600">Gérez toutes les traites de tous les utilisateurs</p>
           </div>
 
-          {/* Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
               <h3 className="text-sm text-gray-500 mb-1">Total des Traites</h3>
               <p className="text-2xl font-bold">{stats.totalTraites}</p>
@@ -483,92 +519,118 @@ const KmebyleAdmin = () => {
             </div>
           </div>
 
-          {/* Search, Filter and Create Section */}
-          <div className="flex flex-col lg:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher par nom, CIN, téléphone ou note..."
-                className="w-full p-3 pl-10 pr-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <div className="space-y-4 mb-6">
+            {/* First Row: Search and Date Filter */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1 min-w-0">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Rechercher par nom, CIN, téléphone ou note..."
+                  className="w-full p-3 pl-10 pr-4 rounded-lg border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                />
+                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              </div>
+              <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 shadow-sm min-w-0">
+                <FaCalendar className="text-gray-500" />
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  placeholder="Date de début"
+                  className="p-3 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 text-sm w-32"
+                />
+                <span className="text-gray-500 text-sm">à</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  placeholder="Date de fin"
+                  className="p-3 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 text-sm w-32"
+                  min={startDate}
+                />
+                {(startDate || endDate) && (
+                  <button
+                    type="button"
+                    onClick={clearDateFilter}
+                    className="p-2 text-red-600 hover:bg-red-100 rounded-full"
+                  >
+                    <FaTimes className="text-sm" />
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3">
-              <FaUser className="text-gray-500" />
-              <select
-                value={selectedUser}
-                onChange={(e) => setSelectedUser(e.target.value)}
-                className="p-3 bg-transparent focus:outline-none"
+            {/* Second Row: User, Type, Sort, and New Traite */}
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 shadow-sm min-w-[160px]">
+                <FaUser className="text-gray-500" />
+                <select
+                  value={selectedUser}
+                  onChange={(e) => setSelectedUser(e.target.value)}
+                  className="p-3 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-full"
+                >
+                  <option value="all">Tous les utilisateurs</option>
+                  {users.map((user) => (
+                    <option key={user._id} value={user._id}>
+                      {user.firstName} {user.lastName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 shadow-sm min-w-[160px]">
+                <FaBuilding className="text-gray-500" />
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="p-3 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-full"
+                >
+                  <option value="all">Tous les types</option>
+                  <option value="physique">Physique</option>
+                  <option value="bank">Banque</option>
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleSort("name")}
+                  className="flex items-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm"
+                >
+                  <span className="font-medium">Nom</span>
+                  {getSortIcon("name")}
+                </button>
+                <button
+                  onClick={() => handleSort("date")}
+                  className="flex items-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm"
+                >
+                  <span className="font-medium">Date</span>
+                  {getSortIcon("date")}
+                </button>
+                <button
+                  onClick={() => handleSort("amount")}
+                  className="flex items-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm"
+                >
+                  <span className="font-medium">Montant</span>
+                  {getSortIcon("amount")}
+                </button>
+                <button
+                  onClick={() => handleSort("user")}
+                  className="flex items-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm"
+                >
+                  <span className="font-medium">Utilisateur</span>
+                  {getSortIcon("user")}
+                </button>
+              </div>
+              <button
+                onClick={handleOpenModal}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-sm hover:from-blue-700 hover:to-blue-800 transition-all text-sm"
               >
-                <option value="all">Tous les utilisateurs</option>
-                {users.map(user => (
-                  <option key={user._id} value={user._id}>
-                    {user.firstName} {user.lastName}
-                  </option>
-                ))}
-              </select>
+                <FaPlus className="text-sm" />
+                <span className="font-medium">Nouvelle Traite</span>
+              </button>
             </div>
-
-            <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3">
-              <FaBuilding className="text-gray-500" />
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="p-3 bg-transparent focus:outline-none"
-              >
-                <option value="all">Tous les types</option>
-                <option value="physique">Physique</option>
-                <option value="bank">Banque</option>
-              </select>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleSort("name")}
-                className="flex items-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <span className="text-sm font-medium">Nom</span>
-                {getSortIcon("name")}
-              </button>
-
-              <button
-                onClick={() => handleSort("date")}
-                className="flex items-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <span className="text-sm font-medium">Date</span>
-                {getSortIcon("date")}
-              </button>
-
-              <button
-                onClick={() => handleSort("amount")}
-                className="flex items-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <span className="text-sm font-medium">Montant</span>
-                {getSortIcon("amount")}
-              </button>
-
-              <button
-                onClick={() => handleSort("user")}
-                className="flex items-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <span className="text-sm font-medium">Utilisateur</span>
-                {getSortIcon("user")}
-              </button>
-            </div>
-
-            <button
-              onClick={handleOpenModal}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 shadow-lg"
-            >
-              <FaPlus className="text-sm" />
-              <span className="font-medium">Nouvelle Traite</span>
-            </button>
           </div>
 
-          {/* Loading State */}
           {isLoading && (
             <div className="flex justify-center items-center py-12">
               <FaSpinner className="animate-spin text-3xl text-blue-600" />
@@ -576,7 +638,6 @@ const KmebyleAdmin = () => {
             </div>
           )}
 
-          {/* Error State */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
               <p className="text-red-600">{error}</p>
@@ -586,9 +647,8 @@ const KmebyleAdmin = () => {
             </div>
           )}
 
-          {/* Traites Grid */}
           {!isLoading && !error && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {currentRecords.length > 0 ? (
                 currentRecords.map((traite) => (
                   <div
@@ -596,7 +656,6 @@ const KmebyleAdmin = () => {
                     className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100 overflow-hidden"
                   >
                     <div className="p-6">
-                      {/* Header */}
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
                           <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
@@ -612,7 +671,6 @@ const KmebyleAdmin = () => {
                         </span>
                       </div>
 
-                      {/* Customer Info */}
                       <div className="space-y-2 mb-4">
                         <div className="flex items-center gap-2 text-gray-600">
                           <FaIdCard className="text-blue-500 flex-shrink-0" />
@@ -630,7 +688,6 @@ const KmebyleAdmin = () => {
                         )}
                       </div>
 
-                      {/* User Info */}
                       <div className="border-t border-gray-100 pt-3 mb-4">
                         <div className="flex items-center gap-2 text-gray-600">
                           <FaUser className="text-purple-500 flex-shrink-0" />
@@ -643,7 +700,6 @@ const KmebyleAdmin = () => {
                         </div>
                       </div>
 
-                      {/* Payment Summary */}
                       <div className="bg-gray-50 rounded-lg p-3 mb-4">
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-sm text-gray-600">Total:</span>
@@ -661,7 +717,6 @@ const KmebyleAdmin = () => {
                         </div>
                       </div>
 
-                      {/* Payment Status Indicators */}
                       <div className="flex flex-wrap gap-1 mb-4">
                         {traite.payments?.map((payment, index) => (
                           <div
@@ -674,15 +729,14 @@ const KmebyleAdmin = () => {
                         ))}
                       </div>
 
-                      {/* Actions */}
                       <div className="flex gap-2">
-                        <button
+                        {/* <button
                           onClick={() => handleShowDetails(traite)}
                           className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
                         >
                           <FaEye className="text-xs" />
                           Voir
-                        </button>
+                        </button> */}
                         <button
                           onClick={() => handleEdit(traite)}
                           className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm"
@@ -706,11 +760,11 @@ const KmebyleAdmin = () => {
                   <FaFileInvoice className="mx-auto text-6xl text-gray-300 mb-4" />
                   <h3 className="text-xl font-medium text-gray-900 mb-2">Aucune traite trouvée</h3>
                   <p className="text-gray-500 mb-6">
-                    {searchQuery || selectedUser !== "all" || selectedType !== "all"
+                    {searchQuery || selectedUser !== "all" || selectedType !== "all" || startDate || endDate
                       ? "Essayez d'ajuster vos critères de recherche ou de filtre"
                       : "Commencez par créer votre première traite"}
                   </p>
-                  {!searchQuery && selectedUser === "all" && selectedType === "all" && (
+                  {!searchQuery && selectedUser === "all" && selectedType === "all" && !startDate && !endDate && (
                     <button
                       onClick={handleOpenModal}
                       className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -724,7 +778,6 @@ const KmebyleAdmin = () => {
             </div>
           )}
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex justify-center mt-8">
               <div className="flex gap-2">
@@ -743,7 +796,6 @@ const KmebyleAdmin = () => {
             </div>
           )}
 
-          {/* User Statistics */}
           {Object.keys(stats.userStats).length > 0 && (
             <div className="mt-8 bg-white rounded-xl shadow-md overflow-hidden">
               <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
@@ -806,7 +858,6 @@ const KmebyleAdmin = () => {
         </div>
       </div>
 
-      {/* Create/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -822,7 +873,6 @@ const KmebyleAdmin = () => {
 
               <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Customer Selection */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Client *</label>
                     <select
@@ -830,7 +880,7 @@ const KmebyleAdmin = () => {
                       value={traiteForm.customer}
                       onChange={handleInputChange}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || editingTraite}
                     >
                       <option value="">Sélectionner un client</option>
                       {customers.map((customer) => (
@@ -841,7 +891,6 @@ const KmebyleAdmin = () => {
                     </select>
                   </div>
 
-                  {/* User Selection */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Utilisateur *</label>
                     <select
@@ -862,7 +911,6 @@ const KmebyleAdmin = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Type */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Type *</label>
                     <select
@@ -877,7 +925,6 @@ const KmebyleAdmin = () => {
                     </select>
                   </div>
 
-                  {/* Note */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Note</label>
                     <div className="relative">
@@ -895,7 +942,6 @@ const KmebyleAdmin = () => {
                   </div>
                 </div>
 
-                {/* Payments Section */}
                 <div className="border-t pt-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-medium text-gray-900">Paiements</h3>
@@ -989,7 +1035,7 @@ const KmebyleAdmin = () => {
                   <button
                     onClick={handleSubmit}
                     type="button"
-                    disabled={isSubmitting || !traiteForm.customer || !traiteForm.user}
+                    disabled={isSubmitting || (!traiteForm.customer && !editingTraite) || !traiteForm.user}
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (
@@ -1010,7 +1056,6 @@ const KmebyleAdmin = () => {
         </div>
       )}
 
-      {/* Details Modal */}
       {isDetailsModalOpen && selectedTraite && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1026,7 +1071,6 @@ const KmebyleAdmin = () => {
               </div>
 
               <div className="space-y-6">
-                {/* Basic Info */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="text-lg font-medium text-gray-900 mb-3">Informations Générales</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1061,7 +1105,6 @@ const KmebyleAdmin = () => {
                   </div>
                 </div>
 
-                {/* Payment Summary */}
                 <div className="bg-blue-50 rounded-lg p-4">
                   <h3 className="text-lg font-medium text-gray-900 mb-3">Résumé des Paiements</h3>
                   <div className="grid grid-cols-3 gap-4">
@@ -1082,7 +1125,6 @@ const KmebyleAdmin = () => {
                   </div>
                 </div>
 
-                {/* Payments List */}
                 <div className="bg-green-50 rounded-lg p-4">
                   <h3 className="text-lg font-medium text-gray-900 mb-3">
                     Liste des Paiements ({selectedTraite.payments?.length || 0})
@@ -1108,6 +1150,7 @@ const KmebyleAdmin = () => {
                             <button
                               onClick={() => togglePaymentStatus(selectedTraite._id, index)}
                               className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                              disabled={isSubmitting}
                             >
                               <FaCheck className="text-xs" />
                               Marquer Payé
