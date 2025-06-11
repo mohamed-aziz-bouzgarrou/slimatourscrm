@@ -1,145 +1,165 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import moment from "moment";
-import AdminSidbar from "../Home/admin/AdminSidbar";
-import { Doughnut, Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
+"use client"
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
+import { useEffect, useState } from "react"
+import axios from "axios"
+import moment from "moment"
+import AdminSidbar from "../Home/admin/AdminSidbar"
+import { Doughnut, Bar } from "react-chartjs-2"
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js"
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement)
 
 export default function SupDashboard() {
-  const [dashboardStats, setDashboardStats] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [cities, setCities] = useState([]);
-  const [selectedUserId, setSelectedUserId] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
-  const [dateFilterType, setDateFilterType] = useState('all'); // 'all', 'day', 'week', 'month', 'year'
-  const [filterDate, setFilterDate] = useState(moment().format('YYYY-MM-DD'));
-  const [filterType, setFilterType] = useState('all'); // 'all', 'user', 'city'
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [dashboardStats, setDashboardStats] = useState(null)
+  const [users, setUsers] = useState([])
+  const [cities, setCities] = useState([])
+  const [selectedUserId, setSelectedUserId] = useState("")
+  const [selectedCity, setSelectedCity] = useState("")
+  const [dateFilterType, setDateFilterType] = useState("all") // 'all', 'day', 'week', 'month', 'year'
+  const [filterDate, setFilterDate] = useState(moment().format("YYYY-MM-DD"))
+  const [filterType, setFilterType] = useState("all") // 'all', 'user', 'city'
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/users/`);
-        const usersData = response.data.data?.data || response.data.data || [];
-        setUsers(usersData);
-        const uniqueCities = [...new Set(usersData.map(user => user.city).filter(Boolean))];
-        setCities(uniqueCities);
+        const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/users/`)
+        const usersData = response.data.data?.data || response.data.data || []
+        setUsers(usersData)
+        const uniqueCities = [...new Set(usersData.map((user) => user.city).filter(Boolean))]
+        setCities(uniqueCities)
       } catch (error) {
-        console.error("Erreur lors de la récupération des utilisateurs:", error);
+        console.error("Erreur lors de la récupération des utilisateurs:", error)
       }
-    };
+    }
 
-    fetchUsers();
-  }, []);
+    fetchUsers()
+  }, [])
 
   useEffect(() => {
-    fetchDashboardStats();
-  }, [selectedUserId, selectedCity, filterType, dateFilterType, filterDate]);
+    fetchDashboardStats()
+  }, [selectedUserId, selectedCity, filterType, dateFilterType, filterDate])
 
   const fetchDashboardStats = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
-      let url = `${process.env.REACT_APP_API_BASE_URL}/home`;
-      
-      if (filterType === 'user' && selectedUserId) {
-        url += `/user/${selectedUserId}`;
-      } else if (filterType === 'city' && selectedCity) {
-        url += `/city/${encodeURIComponent(selectedCity)}`;
+      setLoading(true)
+      setError(null)
+
+      let url = `${process.env.REACT_APP_API_BASE_URL}/home`
+
+      if (filterType === "user" && selectedUserId) {
+        url += `/user/${selectedUserId}`
+      } else if (filterType === "city" && selectedCity) {
+        url += `/city/${encodeURIComponent(selectedCity)}`
       } else {
-        url += '/all';
+        url += "/all"
       }
 
       const response = await axios.get(url, {
         params: {
-          filterType: dateFilterType !== 'all' ? dateFilterType : undefined,
-          date: dateFilterType !== 'all' ? filterDate : undefined
-        }
-      });
-      
+          filterType: dateFilterType !== "all" ? dateFilterType : undefined,
+          date: dateFilterType !== "all" ? filterDate : undefined,
+        },
+      })
+
       if (response.data.success) {
-        let statsData = response.data.data;
-        
+        const statsData = response.data.data
+
         // Calculate Total Revenue Collected and Net Profit
-        const totalRevenueCollected = (statsData.overall?.omraBookings?.totalAmount || statsData.omraBookings?.totalAmount || 0) - 
-                                     (statsData.overall?.omraBookings?.totalCredit || statsData.omraBookings?.totalCredit || 0);
-        const totalDependences = statsData.overall?.dependences?.totalAmount || statsData.dependences?.totalAmount || 0;
-        const netProfit = totalRevenueCollected - totalDependences;
+        const totalRevenueCollected =
+          (statsData.overall?.omraBookings?.totalAmount || statsData.omraBookings?.totalAmount || 0) -
+          (statsData.overall?.omraBookings?.totalCredit || statsData.omraBookings?.totalCredit || 0)
+        const totalDependences = statsData.overall?.dependences?.totalAmount || statsData.dependences?.totalAmount || 0
+        const netProfit =
+          statsData.overall?.netProfit || statsData.netProfit || totalRevenueCollected - totalDependences
+        const bankNetProfit = statsData.overall?.bankNetProfit || statsData.bankNetProfit || 0
+        const cashNetProfit = statsData.overall?.cashNetProfit || statsData.cashNetProfit || 0
+
+        // Get booking types and payment methods
+        const bookingTypes = statsData.overall?.omraBookings?.byType || statsData.omraBookings?.byType || {}
+        const paymentCounts = statsData.overall?.payments?.counts || statsData.payments?.counts || {}
+        const paymentAmounts = statsData.overall?.payments?.amounts || statsData.payments?.amounts || {}
 
         // If overall stats, process city data
-        let byCity = statsData.byCity;
+        let byCity = statsData.byCity
         if (byCity) {
           byCity = Object.fromEntries(
             Object.entries(statsData.byCity).map(([city, data]) => {
-              const cityRevenueCollected = (data.omraBookings?.totalAmount || 0) - (data.omraBookings?.totalCredit || 0);
-              const cityNetProfit = cityRevenueCollected - (data.dependences?.totalAmount || 0);
-              return [city, {
-                ...data,
-                totalRevenueCollected: cityRevenueCollected,
-                netProfit: cityNetProfit
-              }];
-            })
-          );
+              const cityRevenueCollected = (data.omraBookings?.totalAmount || 0) - (data.omraBookings?.totalCredit || 0)
+              const cityNetProfit = data.netProfit || cityRevenueCollected - (data.dependences?.totalAmount || 0)
+              return [
+                city,
+                {
+                  ...data,
+                  totalRevenueCollected: cityRevenueCollected,
+                  netProfit: cityNetProfit,
+                },
+              ]
+            }),
+          )
         }
 
         // Structure the stats data
         const processedStats = {
           ...(statsData.overall || statsData),
           totalRevenueCollected,
-          totalRevenueExpected: statsData.overall?.omraBookings?.totalAmount || statsData.omraBookings?.totalAmount || 0,
+          totalRevenueExpected:
+            statsData.overall?.omraBookings?.totalAmount || statsData.omraBookings?.totalAmount || 0,
           netProfit,
+          bankNetProfit,
+          cashNetProfit,
+          bookingTypes,
+          paymentCounts,
+          paymentAmounts,
           byCity,
-          calculatedAt: statsData.calculatedAt
-        };
+          calculatedAt: statsData.calculatedAt,
+        }
 
-        setDashboardStats(processedStats);
+        setDashboardStats(processedStats)
       } else {
-        setError("Échec de la récupération des statistiques du tableau de bord");
+        setError("Échec de la récupération des statistiques du tableau de bord")
       }
     } catch (error) {
-      console.error("Erreur lors de la récupération des statistiques du tableau de bord:", error);
-      setError(`Erreur: ${error.response?.data?.message || error.message}`);
+      console.error("Erreur lors de la récupération des statistiques du tableau de bord:", error)
+      setError(`Erreur: ${error.response?.data?.message || error.message}`)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleFilterChange = (type) => {
-    setFilterType(type);
-    setSelectedUserId('');
-    setSelectedCity('');
-    if (type === 'all') {
-      fetchDashboardStats();
+    setFilterType(type)
+    setSelectedUserId("")
+    setSelectedCity("")
+    if (type === "all") {
+      fetchDashboardStats()
     }
-  };
+  }
 
   const handleDateFilterChange = (e) => {
-    setDateFilterType(e.target.value);
-  };
+    setDateFilterType(e.target.value)
+  }
 
   const handleDateChange = (e) => {
-    setFilterDate(e.target.value);
-  };
+    setFilterDate(e.target.value)
+  }
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('fr-TN', {
-      style: 'currency',
-      currency: 'TND',
+    return new Intl.NumberFormat("fr-TN", {
+      style: "currency",
+      currency: "TND",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount || 0);
-  };
+      maximumFractionDigits: 0,
+    }).format(amount || 0)
+  }
 
   const safeData = (data) => {
     return {
       labels: data?.labels || [],
       datasets: data?.datasets || [],
-    };
-  };
+    }
+  }
 
   const commonChartOptions = {
     responsive: true,
@@ -147,34 +167,34 @@ export default function SupDashboard() {
     aspectRatio: 1.5,
     plugins: {
       legend: {
-        position: 'bottom',
+        position: "bottom",
         labels: {
           padding: 20,
           usePointStyle: true,
-          font: { size: 12 }
-        }
+          font: { size: 12 },
+        },
       },
       tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        titleColor: 'white',
-        bodyColor: 'white',
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        borderWidth: 1
-      }
-    }
-  };
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        titleColor: "white",
+        bodyColor: "white",
+        borderColor: "rgba(255, 255, 255, 0.1)",
+        borderWidth: 1,
+      },
+    },
+  }
 
   const doughnutOptions = {
     ...commonChartOptions,
-    cutout: '60%',
+    cutout: "60%",
     plugins: {
       ...commonChartOptions.plugins,
       legend: {
         ...commonChartOptions.plugins.legend,
-        position: 'right'
-      }
-    }
-  };
+        position: "right",
+      },
+    },
+  }
 
   const barOptions = {
     ...commonChartOptions,
@@ -182,26 +202,25 @@ export default function SupDashboard() {
     scales: {
       y: {
         beginAtZero: true,
-        grid: { color: 'rgba(0, 0, 0, 0.1)' },
+        grid: { color: "rgba(0, 0, 0, 0.1)" },
         ticks: {
-          callback: function(value) {
-            return new Intl.NumberFormat('fr-TN', {
-              style: 'currency',
-              currency: 'TND',
+          callback: (value) =>
+            new Intl.NumberFormat("fr-TN", {
+              style: "currency",
+              currency: "TND",
               minimumFractionDigits: 0,
-              maximumFractionDigits: 0
-            }).format(value);
-          }
-        }
+              maximumFractionDigits: 0,
+            }).format(value),
+        },
       },
-      x: { grid: { display: false } }
-    }
-  };
+      x: { grid: { display: false } },
+    },
+  }
 
   const createChartData = () => {
-    if (!dashboardStats) return {};
+    if (!dashboardStats) return {}
 
-    const cityData = dashboardStats.byCity ? Object.entries(dashboardStats.byCity) : [];
+    const cityData = dashboardStats.byCity ? Object.entries(dashboardStats.byCity) : []
     const cityChartData = {
       labels: cityData.map(([city]) => city),
       datasets: [
@@ -209,14 +228,22 @@ export default function SupDashboard() {
           label: "Revenus Collectés par agence",
           data: cityData.map(([, data]) => data.totalRevenueCollected || 0),
           backgroundColor: [
-            "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", 
-            "#FF9F40", "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"
+            "#FF6384",
+            "#36A2EB",
+            "#FFCE56",
+            "#4BC0C0",
+            "#9966FF",
+            "#FF9F40",
+            "#FF6B6B",
+            "#4ECDC4",
+            "#45B7D1",
+            "#96CEB4",
           ],
           borderWidth: 2,
-          borderColor: '#fff'
-        }
-      ]
-    };
+          borderColor: "#fff",
+        },
+      ],
+    }
 
     const profitVsExpensesData = {
       labels: ["Revenus Collectés", "Revenus Prévu", "Dépenses", "Profit Net"],
@@ -227,17 +254,14 @@ export default function SupDashboard() {
             dashboardStats.totalRevenueCollected || 0,
             dashboardStats.totalRevenueExpected || 0,
             dashboardStats.dependences?.totalAmount || 0,
-            dashboardStats.netProfit || 0
+            dashboardStats.netProfit || 0,
           ],
-          backgroundColor: [
-            "#36A2EB", "#4BC0C0", "#FF6384", 
-            dashboardStats.netProfit >= 0 ? "#4BC0C0" : "#FF6384"
-          ],
+          backgroundColor: ["#36A2EB", "#4BC0C0", "#FF6384", dashboardStats.netProfit >= 0 ? "#4BC0C0" : "#FF6384"],
           borderWidth: 1,
-          borderColor: '#fff'
-        }
-      ]
-    };
+          borderColor: "#fff",
+        },
+      ],
+    }
 
     const traiteData = {
       labels: ["Traites Payées (Est.)", "Traites Impayées (Est.)"],
@@ -246,19 +270,73 @@ export default function SupDashboard() {
           label: "Statut des Traites",
           data: [
             Math.floor((dashboardStats.kembyela?.count || 0) * 0.7),
-            Math.ceil((dashboardStats.kembyela?.count || 0) * 0.3)
+            Math.ceil((dashboardStats.kembyela?.count || 0) * 0.3),
           ],
           backgroundColor: ["#4BC0C0", "#FF6384"],
           borderWidth: 2,
-          borderColor: '#fff'
-        }
-      ]
-    };
+          borderColor: "#fff",
+        },
+      ],
+    }
 
-    return { cityChartData, profitVsExpensesData, traiteData };
-  };
+    // New chart for booking types
+    const bookingTypesData = {
+      labels: Object.keys(dashboardStats.bookingTypes || {}),
+      datasets: [
+        {
+          label: "Types de Réservations",
+          data: Object.values(dashboardStats.bookingTypes || {}),
+          backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40"],
+          borderWidth: 2,
+          borderColor: "#fff",
+        },
+      ],
+    }
 
-  const { cityChartData, profitVsExpensesData, traiteData } = createChartData();
+    // New chart for payment methods
+    const paymentMethodsData = {
+      labels: Object.keys(dashboardStats.paymentCounts || {}),
+      datasets: [
+        {
+          label: "Méthodes de Paiement",
+          data: Object.values(dashboardStats.paymentCounts || {}),
+          backgroundColor: ["#4BC0C0", "#FF6384", "#FFCE56", "#36A2EB"],
+          borderWidth: 2,
+          borderColor: "#fff",
+        },
+      ],
+    }
+
+    // New chart for profit breakdown
+    const profitBreakdownData = {
+      labels: ["Profit Net Global", "Profit Net Banque", "Profit Net Caisse"],
+      datasets: [
+        {
+          label: "Répartition des Profits (TND)",
+          data: [dashboardStats.netProfit || 0, dashboardStats.bankNetProfit || 0, dashboardStats.cashNetProfit || 0],
+          backgroundColor: [
+            dashboardStats.netProfit >= 0 ? "#4BC0C0" : "#FF6384",
+            dashboardStats.bankNetProfit >= 0 ? "#36A2EB" : "#FF6384",
+            dashboardStats.cashNetProfit >= 0 ? "#FFCE56" : "#FF6384",
+          ],
+          borderWidth: 1,
+          borderColor: "#fff",
+        },
+      ],
+    }
+
+    return {
+      cityChartData,
+      profitVsExpensesData,
+      traiteData,
+      bookingTypesData,
+      paymentMethodsData,
+      profitBreakdownData,
+    }
+  }
+
+  const { cityChartData, profitVsExpensesData, traiteData, bookingTypesData, paymentMethodsData, profitBreakdownData } =
+    createChartData()
 
   if (loading) {
     return (
@@ -275,7 +353,7 @@ export default function SupDashboard() {
           </div>
         </main>
       </div>
-    );
+    )
   }
 
   return (
@@ -287,9 +365,7 @@ export default function SupDashboard() {
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
             <h1 className="text-2xl text-gray-800">Tableau de Bord Superviseur</h1>
-            <p className="text-sm text-gray-600">
-              Dernière mise à jour: {moment().format('DD/MM/YYYY HH:mm')}
-            </p>
+            <p className="text-sm text-gray-600">Dernière mise à jour: {moment().format("DD/MM/YYYY HH:mm")}</p>
           </div>
         </header>
 
@@ -309,7 +385,7 @@ export default function SupDashboard() {
               </select>
             </div>
 
-            {filterType === 'user' && (
+            {filterType === "user" && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Sélectionner un Utilisateur</label>
                 <select
@@ -318,7 +394,7 @@ export default function SupDashboard() {
                   className="block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Choisir un utilisateur</option>
-                  {users.map(user => (
+                  {users.map((user) => (
                     <option key={user._id} value={user._id}>
                       {user.firstName} {user.lastName} ({user.city})
                     </option>
@@ -327,7 +403,7 @@ export default function SupDashboard() {
               </div>
             )}
 
-            {filterType === 'city' && (
+            {filterType === "city" && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Sélectionner une agence</label>
                 <select
@@ -336,8 +412,10 @@ export default function SupDashboard() {
                   className="block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Choisir une agence</option>
-                  {cities.map(city => (
-                    <option key={city} value={city}>{city}</option>
+                  {cities.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -358,7 +436,7 @@ export default function SupDashboard() {
               </select>
             </div>
 
-            {dateFilterType !== 'all' && (
+            {dateFilterType !== "all" && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
                 <input
@@ -396,70 +474,117 @@ export default function SupDashboard() {
                   label: "Total Utilisateurs",
                   value: dashboardStats.totalUsers || dashboardStats.userCount || 0,
                   color: "bg-blue-500",
-                  icon: "👥"
+                  icon: "👥",
                 },
                 {
                   label: "Total Réservations",
                   value: dashboardStats.omraBookings?.count || 0,
                   color: "bg-green-500",
-                  icon: "📋"
+                  icon: "📋",
                 },
                 {
                   label: "Revenu Total Prévu",
                   value: formatCurrency(dashboardStats.totalRevenueExpected || 0),
                   color: "bg-emerald-500",
-                  icon: "💰"
+                  icon: "💰",
                 },
                 {
                   label: "Revenu Total Collecté",
                   value: formatCurrency(dashboardStats.totalRevenueCollected || 0),
                   color: "bg-teal-500",
-                  icon: "✅"
+                  icon: "✅",
                 },
                 {
                   label: "Total Crédit",
                   value: formatCurrency(dashboardStats.omraBookings?.totalCredit || 0),
                   color: "bg-red-500",
-                  icon: "⚠️"
+                  icon: "⚠️",
                 },
                 {
                   label: "Total Paiements Traite",
                   value: formatCurrency(dashboardStats.kembyela?.totalAmount || 0),
                   color: "bg-indigo-500",
-                  icon: "💳"
+                  icon: "💳",
                 },
                 {
                   label: "Nombre de Traites",
                   value: dashboardStats.kembyela?.count || 0,
                   color: "bg-cyan-500",
-                  icon: "📊"
+                  icon: "📊",
                 },
                 {
                   label: "Total Dépenses",
                   value: formatCurrency(dashboardStats.dependences?.totalAmount || 0),
                   color: "bg-red-600",
-                  icon: "💸"
+                  icon: "💸",
                 },
                 {
-                  label: "Profit Net",
+                  label: "Profit Net Global",
                   value: formatCurrency(dashboardStats.netProfit || 0),
                   color: dashboardStats.netProfit >= 0 ? "bg-green-700" : "bg-red-700",
                   icon: dashboardStats.netProfit >= 0 ? "📈" : "📉",
-                  tooltip: "Calculé comme: Revenu Total Collecté - Total Dépenses"
-                }
+                  tooltip: "Calculé comme: Revenu Total Collecté - Total Dépenses",
+                },
+                {
+                  label: "Profit Net Banque",
+                  value: formatCurrency(dashboardStats.bankNetProfit || 0),
+                  color: dashboardStats.bankNetProfit >= 0 ? "bg-blue-600" : "bg-red-600",
+                  icon: "🏦",
+                  tooltip: "Paiements Chèque/Virement - Dépenses Chèque/Virement",
+                },
+                {
+                  label: "Profit Net Caisse",
+                  value: formatCurrency(dashboardStats.cashNetProfit || 0),
+                  color: dashboardStats.cashNetProfit >= 0 ? "bg-yellow-600" : "bg-red-600",
+                  icon: "💵",
+                  tooltip: "Paiements Espèce - Dépenses Espèce",
+                },
               ].map((stat, index) => (
-                <div key={index} className="p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
+                <div
+                  key={index}
+                  className="p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200"
+                >
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm text-gray-500 font-medium">{stat.label}</h3>
                     <span className="text-lg">{stat.icon}</span>
                   </div>
                   <p className="text-xl font-bold text-gray-800">{stat.value}</p>
-                  {stat.tooltip && (
-                    <p className="text-xs text-gray-500 mt-1">{stat.tooltip}</p>
-                  )}
+                  {stat.tooltip && <p className="text-xs text-gray-500 mt-1">{stat.tooltip}</p>}
                   <div className={`h-1 ${stat.color} rounded-full mt-2 opacity-20`}></div>
                 </div>
               ))}
+            </section>
+
+            {/* New section for booking types */}
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <div className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Types de Réservations</h2>
+                <div className="grid grid-cols-2 gap-4">
+                  {Object.entries(dashboardStats.bookingTypes || {}).map(([type, count]) => (
+                    <div key={type} className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600">{count}</div>
+                      <div className="text-sm text-gray-600 capitalize">{type}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Méthodes de Paiement</h2>
+                <div className="space-y-3">
+                  {Object.entries(dashboardStats.paymentCounts || {}).map(([method, count]) => (
+                    <div key={method} className="flex justify-between items-center">
+                      <span className="text-gray-600 capitalize">{method}:</span>
+                      <div className="text-right">
+                        <span className="font-semibold">{count} paiements</span>
+                        <div className="text-sm text-gray-500">
+                          {formatCurrency(dashboardStats.paymentAmounts?.[method] || 0)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </section>
 
             <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
@@ -487,20 +612,64 @@ export default function SupDashboard() {
               </div>
             </section>
 
-            {dashboardStats.byCity && filterType === 'all' && (
-              <section className="bg-white rounded-lg shadow-md p-6">
+            {/* New charts section */}
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+              <div className="p-6 bg-white rounded-lg shadow-md">
+                <h3 className="text-lg font-medium mb-4 text-center">Types de Réservations</h3>
+                <div className="h-80 flex items-center justify-center">
+                  <Doughnut data={safeData(bookingTypesData)} options={doughnutOptions} />
+                </div>
+              </div>
+
+              <div className="p-6 bg-white rounded-lg shadow-md">
+                <h3 className="text-lg font-medium mb-4 text-center">Méthodes de Paiement</h3>
+                <div className="h-80 flex items-center justify-center">
+                  <Doughnut data={safeData(paymentMethodsData)} options={doughnutOptions} />
+                </div>
+              </div>
+
+              <div className="p-6 bg-white rounded-lg shadow-md">
+                <h3 className="text-lg font-medium mb-4 text-center">Répartition des Profits</h3>
+                <div className="h-80">
+                  <Bar data={safeData(profitBreakdownData)} options={barOptions} />
+                </div>
+              </div>
+            </section>
+
+            {dashboardStats.byCity && filterType === "all" && (
+              <section className="bg-white rounded-lg shadow-md p-6 mb-6">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">Statistiques par agence</h2>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">agence</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Utilisateurs</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Réservations</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenus Collectés</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenus Prévu</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Traites</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit Net</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          agence
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Utilisateurs
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Réservations
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Revenus Collectés
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Revenus Prévu
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Traites
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Profit Net
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Profit Banque
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Profit Caisse
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -508,12 +677,32 @@ export default function SupDashboard() {
                         <tr key={city} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{city}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{data.userCount || 0}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{data.omraBookings?.count || 0}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(data.totalRevenueCollected || 0)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(data.omraBookings?.totalAmount || 0)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{data.kembyela?.count || 0}</td>
-                          <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${data.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {data.omraBookings?.count || 0}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatCurrency(data.totalRevenueCollected || 0)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatCurrency(data.omraBookings?.totalAmount || 0)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {data.kembyela?.count || 0}
+                          </td>
+                          <td
+                            className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${data.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}
+                          >
                             {formatCurrency(data.netProfit || 0)}
+                          </td>
+                          <td
+                            className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${data.bankNetProfit >= 0 ? "text-blue-600" : "text-red-600"}`}
+                          >
+                            {formatCurrency(data.bankNetProfit || 0)}
+                          </td>
+                          <td
+                            className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${data.cashNetProfit >= 0 ? "text-yellow-600" : "text-red-600"}`}
+                          >
+                            {formatCurrency(data.cashNetProfit || 0)}
                           </td>
                         </tr>
                       ))}
@@ -537,17 +726,37 @@ export default function SupDashboard() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Dépenses Totales:</span>
-                    <span className="font-semibold text-red-600">{formatCurrency(dashboardStats.dependences?.totalAmount || 0)}</span>
+                    <span className="font-semibold text-red-600">
+                      {formatCurrency(dashboardStats.dependences?.totalAmount || 0)}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Total Crédit:</span>
-                    <span className="font-semibold text-purple-600">{formatCurrency(dashboardStats.omraBookings?.totalCredit || 0)}</span>
+                    <span className="font-semibold text-purple-600">
+                      {formatCurrency(dashboardStats.omraBookings?.totalCredit || 0)}
+                    </span>
                   </div>
                   <hr />
                   <div className="flex justify-between text-lg">
-                    <span className="text-gray-800 font-semibold">Profit Net (Collecté - Dépenses):</span>
-                    <span className={`font-bold ${dashboardStats.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <span className="text-gray-800 font-semibold">Profit Net Global:</span>
+                    <span className={`font-bold ${dashboardStats.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
                       {formatCurrency(dashboardStats.netProfit || 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-800 font-semibold">Profit Net Banque:</span>
+                    <span
+                      className={`font-bold ${dashboardStats.bankNetProfit >= 0 ? "text-blue-600" : "text-red-600"}`}
+                    >
+                      {formatCurrency(dashboardStats.bankNetProfit || 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-800 font-semibold">Profit Net Caisse:</span>
+                    <span
+                      className={`font-bold ${dashboardStats.cashNetProfit >= 0 ? "text-yellow-600" : "text-red-600"}`}
+                    >
+                      {formatCurrency(dashboardStats.cashNetProfit || 0)}
                     </span>
                   </div>
                 </div>
@@ -557,5 +766,5 @@ export default function SupDashboard() {
         )}
       </main>
     </div>
-  );
+  )
 }

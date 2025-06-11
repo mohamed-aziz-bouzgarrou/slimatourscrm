@@ -32,12 +32,11 @@ export default function EmployerDepence() {
     title: "",
     description: "",
     totalAmount: "",
+    status: "espece", // Default status
   })
 
-  // Get user ID from localStorage
   const userId = localStorage.getItem("user")
 
-  // Fetch dependences from backend
   const fetchDependences = async () => {
     if (!userId) {
       showToast("User not authenticated. Please log in.", "error")
@@ -50,7 +49,6 @@ export default function EmployerDepence() {
       const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/depence/user/${userId}`)
       console.log("Dependences fetched:", response.data)
 
-      // Handle different possible response structures
       let dependenceData = []
       if (Array.isArray(response.data)) {
         dependenceData = response.data
@@ -77,7 +75,6 @@ export default function EmployerDepence() {
     fetchDependences()
   }, [userId])
 
-  // Handle form input changes
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({
@@ -86,44 +83,40 @@ export default function EmployerDepence() {
     }))
   }
 
-  // Reset form data
   const resetForm = () => {
     setFormData({
       title: "",
       description: "",
       totalAmount: "",
+      status: "espece",
     })
     setIsEditing(false)
     setEditingId(null)
   }
 
-  // Open modal for creating new dependence
   const handleOpenCreateModal = () => {
     resetForm()
     setShowModal(true)
   }
 
-  // Open modal for editing dependence
   const handleOpenEditModal = (dependence) => {
     setFormData({
       title: dependence.title,
       description: dependence.description,
       totalAmount: dependence.totalAmount,
+      status: dependence.status || "espece", // Fallback for undefined status
     })
     setIsEditing(true)
     setEditingId(dependence._id)
     setShowModal(true)
   }
 
-  // Close modal
   const handleCloseModal = () => {
     setShowModal(false)
     resetForm()
   }
 
-  // Create or update dependence
   const handleSubmit = async () => {
-    // Validate form
     if (!formData.title.trim()) {
       showToast("Title is required", "error")
       return
@@ -136,22 +129,22 @@ export default function EmployerDepence() {
       showToast("Amount must be greater than 0", "error")
       return
     }
+    if (!formData.status) {
+      showToast("Status is required", "error")
+      return
+    }
 
     setIsSubmitting(true)
     try {
       if (isEditing) {
-        // Update existing dependence
         const response = await axios.put(`${process.env.REACT_APP_API_BASE_URL}/depence/${editingId}`, {
           ...formData,
           user: userId,
         })
-
         setDependences((prev) => prev.map((dep) => (dep._id === editingId ? response.data : dep)))
         showToast("Expense updated successfully!", "success")
       } else {
-        // Create new dependence
         const response = await axios.post(`${process.env.REACT_APP_API_BASE_URL}/depence/${userId}`, formData)
-
         setDependences((prev) => [...prev, response.data])
         showToast("Expense added successfully!", "success")
       }
@@ -166,7 +159,6 @@ export default function EmployerDepence() {
     }
   }
 
-  // Delete a dependence
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this expense?")) {
       return
@@ -183,61 +175,53 @@ export default function EmployerDepence() {
     }
   }
 
-  // Define time periods for filtering
   const startOfWeek = moment().startOf("week")
   const endOfWeek = moment().endOf("week")
   const startOfMonth = moment().startOf("month")
   const endOfMonth = moment().endOf("month")
 
-  // Filter dependences based on search query and time period
   const filteredDependences = dependences
     .filter((dep) => {
-      // Search filter
       if (searchQuery) {
         return (
           dep.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          dep.description.toLowerCase().includes(searchQuery.toLowerCase())
+          dep.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (dep.status || "").toLowerCase().includes(searchQuery.toLowerCase())
         )
       }
       return true
     })
     .filter((dep) => {
-      // Time period filter
       if (filter === "week") {
         return moment(dep.createdAt).isBetween(startOfWeek, endOfWeek, null, "[]")
       } else if (filter === "month") {
         return moment(dep.createdAt).isBetween(startOfMonth, endOfMonth, null, "[]")
       }
-      return true // "all" filter
+      return true
     })
 
-  // Calculate total amount for the filtered period
-  const totalFilteredAmount = filteredDependences.reduce((sum, dep) => sum + dep.totalAmount, 0)
+  const totalFilteredAmount = filteredDependences.reduce((sum, dep) => sum + (dep.totalAmount || 0), 0)
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
       <div className="hidden lg:block fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200">
         <SidBar />
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 lg:ml-64">
         <div className="p-4 sm:p-6">
-          {/* Header */}
           <div className="mb-6">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Gestion des Dépenses</h1>
             <p className="text-gray-600">Gérez vos dépenses efficacement</p>
           </div>
 
-          {/* Search, Filter and Create Section */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher par titre ou description..."
+                placeholder="Rechercher par titre, description ou statut..."
                 className="w-full p-3 pl-10 pr-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -265,7 +249,6 @@ export default function EmployerDepence() {
             </button>
           </div>
 
-          {/* Total Amount Card */}
           <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 mb-6 text-white">
             <div className="flex items-center justify-between">
               <div>
@@ -285,7 +268,6 @@ export default function EmployerDepence() {
             </div>
           </div>
 
-          {/* Loading State */}
           {isLoading && (
             <div className="flex justify-center items-center py-12">
               <FaSpinner className="animate-spin text-3xl text-blue-600" />
@@ -293,7 +275,6 @@ export default function EmployerDepence() {
             </div>
           )}
 
-          {/* Error State */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
               <p className="text-red-600">{error}</p>
@@ -303,7 +284,6 @@ export default function EmployerDepence() {
             </div>
           )}
 
-          {/* Dependences Table */}
           {!isLoading && !error && (
             <>
               {filteredDependences.length > 0 ? (
@@ -334,6 +314,12 @@ export default function EmployerDepence() {
                             scope="col"
                             className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                           >
+                            Statut
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          >
                             Date
                           </th>
                           <th
@@ -345,45 +331,60 @@ export default function EmployerDepence() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredDependences.map((dep) => (
-                          <tr key={dep._id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">{dep.title}</div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="text-sm text-gray-500 line-clamp-2">{dep.description}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-semibold text-green-600">
-                                {dep.totalAmount.toFixed(2)} TND
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">
-                                <div className="flex items-center gap-1">
-                                  <FaCalendarAlt className="text-blue-500" />
-                                  {moment(dep.createdAt).format("DD/MM/YYYY")}
+                        {filteredDependences.map((dep) => {
+                          const status = dep.status || "Inconnu" // Fallback for undefined status
+                          return (
+                            <tr key={dep._id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm font-medium text-gray-900">{dep.title}</div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="text-sm text-gray-500 line-clamp-2">{dep.description}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm font-semibold text-green-600">
+                                  {(dep.totalAmount || 0).toFixed(2)} TND
                                 </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <div className="flex justify-end gap-2">
-                                <button
-                                  onClick={() => handleOpenEditModal(dep)}
-                                  className="text-blue-600 hover:text-blue-900 bg-blue-100 p-2 rounded-full"
-                                >
-                                  <FaEdit />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(dep._id)}
-                                  className="text-red-600 hover:text-red-900 bg-red-100 p-2 rounded-full"
-                                >
-                                  <FaTrash />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-500">
+                                  <span className={`px-2 py-1 rounded-full text-xs ${
+                                    status === 'cheque' ? 'bg-blue-100 text-blue-800' :
+                                    status === 'virement' ? 'bg-green-100 text-green-800' :
+                                    status === 'espece' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-500">
+                                  <div className="flex items-center gap-1">
+                                    <FaCalendarAlt className="text-blue-500" />
+                                    {moment(dep.createdAt).format("DD/MM/YYYY")}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    onClick={() => handleOpenEditModal(dep)}
+                                    className="text-blue-600 hover:text-blue-900 bg-blue-100 p-2 rounded-full"
+                                  >
+                                    <FaEdit />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(dep._id)}
+                                    className="text-red-600 hover:text-red-900 bg-red-100 p-2 rounded-full"
+                                  >
+                                    <FaTrash />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -413,7 +414,6 @@ export default function EmployerDepence() {
         </div>
       </div>
 
-      {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
@@ -474,6 +474,22 @@ export default function EmployerDepence() {
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Statut *</label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={isSubmitting}
+                  >
+                    <option value="">Sélectionner un statut</option>
+                    <option value="cheque">Chèque</option>
+                    <option value="virement">Virement</option>
+                    <option value="espece">Espèce</option>
+                  </select>
+                </div>
+
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={handleCloseModal}
@@ -486,7 +502,7 @@ export default function EmployerDepence() {
                   <button
                     onClick={handleSubmit}
                     type="button"
-                    disabled={isSubmitting || !formData.title || !formData.description || !formData.totalAmount}
+                    disabled={isSubmitting || !formData.title || !formData.description || !formData.totalAmount || !formData.status}
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (

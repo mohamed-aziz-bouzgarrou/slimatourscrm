@@ -27,16 +27,16 @@ export default function Depence() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [selectedUser, setSelectedUser] = useState("all"); // "all" or user ID
+  const [selectedUser, setSelectedUser] = useState("all");
 
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     totalAmount: "",
+    status: "espece",
     user: localStorage.getItem("user")
   });
 
-  // Fetch users for dropdown
   const fetchUsers = async () => {
     try {
       const response = await axios.get(process.env.REACT_APP_API_BASE_URL + "/users/");
@@ -47,14 +47,12 @@ export default function Depence() {
     }
   };
 
-  // Fetch all dependences
   const fetchDependences = async () => {
     setIsLoading(true);
     setError(null);
     try {
       const response = await axios.get(process.env.REACT_APP_API_BASE_URL + "/depence/");
       
-      // Handle different possible response structures
       let dependenceData = [];
       if (Array.isArray(response.data)) {
         dependenceData = response.data;
@@ -81,7 +79,6 @@ export default function Depence() {
     fetchDependences();
   }, []);
 
-  // Handle form input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -90,30 +87,29 @@ export default function Depence() {
     }));
   };
 
-  // Reset form data
   const resetForm = () => {
     setFormData({
       title: "",
       description: "",
       totalAmount: "",
+      status: "espece",
       user: localStorage.getItem("user")
     });
     setIsEditing(false);
     setEditingId(null);
   };
 
-  // Open modal for creating new dependence
   const handleOpenCreateModal = () => {
     resetForm();
     setShowModal(true);
   };
 
-  // Open modal for editing dependence
   const handleOpenEditModal = (dependence) => {
     setFormData({
       title: dependence.title,
       description: dependence.description,
       totalAmount: dependence.totalAmount,
+      status: dependence.status || "espece", // Fallback to 'espece' if status is undefined
       user: dependence.user?._id || dependence.user
     });
     setIsEditing(true);
@@ -121,15 +117,12 @@ export default function Depence() {
     setShowModal(true);
   };
 
-  // Close modal
   const handleCloseModal = () => {
     setShowModal(false);
     resetForm();
   };
 
-  // Create or update dependence
   const handleSubmit = async () => {
-    // Validate form
     if (!formData.title.trim()) {
       alert("Le titre est requis");
       return;
@@ -142,6 +135,10 @@ export default function Depence() {
       alert("Le montant doit être supérieur à 0");
       return;
     }
+    if (!formData.status) {
+      alert("Le statut est requis");
+      return;
+    }
     if (!formData.user) {
       alert("Veuillez sélectionner un utilisateur");
       return;
@@ -150,7 +147,6 @@ export default function Depence() {
     setIsSubmitting(true);
     try {
       if (isEditing) {
-        // Update existing dependence
         const response = await axios.put(
           process.env.REACT_APP_API_BASE_URL + `/depence/${editingId}`, 
           formData
@@ -158,7 +154,6 @@ export default function Depence() {
         setDependences((prev) => prev.map((dep) => (dep._id === editingId ? response.data : dep)));
         alert("Dépense mise à jour avec succès!");
       } else {
-        // Create new dependence
         const response = await axios.post(
           process.env.REACT_APP_API_BASE_URL + `/depence/${formData.user}`, 
           formData
@@ -168,7 +163,7 @@ export default function Depence() {
       }
 
       handleCloseModal();
-      fetchDependences(); // Refresh the list
+      fetchDependences();
     } catch (error) {
       console.error("Erreur lors de l'enregistrement de la dépense:", error);
       const errorMessage = error.response?.data?.message || "Échec de l'enregistrement de la dépense";
@@ -178,7 +173,6 @@ export default function Depence() {
     }
   };
 
-  // Delete a dependence
   const handleDeleteDependence = async (id) => {
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette dépense?")) {
       return;
@@ -195,45 +189,39 @@ export default function Depence() {
     }
   };
 
-  // Define time periods for filtering
   const startOfWeek = moment().startOf("week");
   const endOfWeek = moment().endOf("week");
   const startOfMonth = moment().startOf("month");
   const endOfMonth = moment().endOf("month");
 
-  // Filter dependences based on search query, user and time period
   const filteredDependences = dependences
     .filter((dep) => {
-      // User filter
       if (selectedUser !== "all") {
         return dep.user?._id === selectedUser || dep.user === selectedUser;
       }
       return true;
     })
     .filter((dep) => {
-      // Search filter
       if (searchQuery) {
         return (
           dep.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          dep.description.toLowerCase().includes(searchQuery.toLowerCase())
+          dep.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (dep.status || "").toLowerCase().includes(searchQuery.toLowerCase())
         );
       }
       return true;
     })
     .filter((dep) => {
-      // Time period filter
       if (filter === "week") {
         return moment(dep.createdAt).isBetween(startOfWeek, endOfWeek, null, "[]");
       } else if (filter === "month") {
         return moment(dep.createdAt).isBetween(startOfMonth, endOfMonth, null, "[]");
       }
-      return true; // "all" filter
+      return true;
     });
 
-  // Calculate total amount for the filtered period
   const totalFilteredAmount = filteredDependences.reduce((sum, dep) => sum + (dep.totalAmount || 0), 0);
 
-  // Group expenses by user
   const expensesByUser = filteredDependences.reduce((acc, dep) => {
     const userId = dep.user?._id || dep.user;
     if (!acc[userId]) {
@@ -250,28 +238,24 @@ export default function Depence() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
       <div className="hidden lg:block fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200">
         <AdminSidbar />
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 lg:ml-64">
         <div className="p-4 sm:p-6">
-          {/* Header */}
           <div className="mb-6">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Gestion des Dépenses</h1>
             <p className="text-gray-600">Gérez les dépenses de tous les utilisateurs</p>
           </div>
 
-          {/* Search, Filter and Create Section */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher par titre ou description..."
+                placeholder="Rechercher par titre, description ou statut..."
                 className="w-full p-3 pl-10 pr-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -315,9 +299,7 @@ export default function Depence() {
             </button>
           </div>
 
-          {/* Total Amount Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {/* Total Amount Card */}
             <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
@@ -337,7 +319,6 @@ export default function Depence() {
               </div>
             </div>
 
-            {/* User Count Card */}
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
@@ -353,7 +334,6 @@ export default function Depence() {
               </div>
             </div>
 
-            {/* Average Expense Card */}
             <div className="bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl shadow-lg p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
@@ -374,7 +354,6 @@ export default function Depence() {
             </div>
           </div>
 
-          {/* Loading State */}
           {isLoading && (
             <div className="flex justify-center items-center py-12">
               <FaSpinner className="animate-spin text-3xl text-blue-600" />
@@ -382,7 +361,6 @@ export default function Depence() {
             </div>
           )}
 
-          {/* Error State */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
               <p className="text-red-600">{error}</p>
@@ -392,7 +370,6 @@ export default function Depence() {
             </div>
           )}
 
-          {/* Dependences Table */}
           {!isLoading && !error && (
             <>
               {filteredDependences.length > 0 ? (
@@ -423,6 +400,12 @@ export default function Depence() {
                             scope="col"
                             className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                           >
+                            Statut
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          >
                             Date
                           </th>
                           <th
@@ -443,6 +426,7 @@ export default function Depence() {
                         {filteredDependences.map((dep) => {
                           const userId = dep.user?._id || dep.user;
                           const user = users.find(u => u._id === userId);
+                          const status = dep.status || "Inconnu"; // Fallback for undefined status
                           return (
                             <tr key={dep._id} className="hover:bg-gray-50">
                               <td className="px-6 py-4 whitespace-nowrap">
@@ -454,6 +438,18 @@ export default function Depence() {
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm font-semibold text-green-600">
                                   {(dep.totalAmount || 0).toFixed(2)} TND
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-500">
+                                  <span className={`px-2 py-1 rounded-full text-xs ${
+                                    status === 'cheque' ? 'bg-blue-100 text-blue-800' :
+                                    status === 'virement' ? 'bg-green-100 text-green-800' :
+                                    status === 'espece' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                                  </span>
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
@@ -523,7 +519,6 @@ export default function Depence() {
             </>
           )}
 
-          {/* User Expenses Summary */}
           {selectedUser === "all" && Object.keys(expensesByUser).length > 0 && (
             <div className="mt-8 bg-white rounded-xl shadow-md overflow-hidden">
               <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
@@ -595,7 +590,6 @@ export default function Depence() {
         </div>
       </div>
 
-      {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
@@ -657,6 +651,22 @@ export default function Depence() {
                 </div>
 
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Statut *</label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={isSubmitting}
+                  >
+                    <option value="">Sélectionner un statut</option>
+                    <option value="cheque">Chèque</option>
+                    <option value="virement">Virement</option>
+                    <option value="espece">Espèce</option>
+                  </select>
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Utilisateur *</label>
                   <select
                     name="user"
@@ -678,7 +688,7 @@ export default function Depence() {
                   <button
                     onClick={handleCloseModal}
                     type="button"
-                    className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                    className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors font-medium"
                     disabled={isSubmitting}
                   >
                     Annuler
@@ -686,8 +696,8 @@ export default function Depence() {
                   <button
                     onClick={handleSubmit}
                     type="button"
-                    disabled={isSubmitting || !formData.title || !formData.description || !formData.totalAmount || !formData.user}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isSubmitting || !formData.title || !formData.description || !formData.totalAmount || !formData.status || !formData.user}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (
                       <>

@@ -417,6 +417,7 @@ const BookingManagement = () => {
       hotel: "Hôtel",
       omra: "Omra",
       transfer: "Transfert",
+      "assurance voyage": "Assurance Voyage",
     }
     return types[type] || type
   }
@@ -687,6 +688,7 @@ const BookingManagement = () => {
                       <option value="hotel">Hôtel</option>
                       <option value="omra">Omra</option>
                       <option value="transfer">Transfert</option>
+                      <option value="assurance voyage">Assurance Voyage</option>
                     </select>
                   </div>
 
